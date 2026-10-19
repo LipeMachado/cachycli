@@ -239,7 +239,7 @@ pub struct Cli {
     #[arg(long, alias = "ref", value_name = "REF")]
     pub worktree_ref: Option<String>,
 
-    /// Provider to use: opencode, claude-code, native or acp.
+    /// Provider to use: opencode, claude-code, codex, gemini, native or acp.
     #[arg(long, visible_alias = "backend", value_name = "NAME")]
     pub provider: Option<String>,
 
