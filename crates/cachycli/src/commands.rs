@@ -430,6 +430,20 @@ pub async fn headless_backend(
             tx.clone(),
             false,
         ),
+        BackendKind::Codex | BackendKind::Gemini => {
+            let dialect = if kind == BackendKind::Codex {
+                cachy_core::providers::cli_agent::Dialect::Codex
+            } else {
+                cachy_core::providers::cli_agent::Dialect::Gemini
+            };
+            cachy_core::providers::cli_agent::CliAgentBackend::new(
+                dialect,
+                config.clone(),
+                cwd.clone(),
+                tx.clone(),
+                false,
+            )
+        }
         BackendKind::Native => {
             anyhow::bail!("the native provider runs its own loop; this is a bug — please report it")
         }

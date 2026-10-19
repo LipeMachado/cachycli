@@ -28,7 +28,55 @@ pub struct ProviderInfo {
 
 /// Every provider the CLI can talk to, with its current state.
 pub fn detect(config: &Config) -> Vec<ProviderInfo> {
-    vec![opencode(), claude_code(), native(config), acp(config)]
+    vec![
+        opencode(),
+        claude_code(),
+        cli_agent(BackendKind::Codex, "Codex", "codex", config),
+        cli_agent(BackendKind::Gemini, "Gemini", "gemini", config),
+        native(config),
+        acp(config),
+    ]
+}
+
+/// A CLI agent: installed means the command is there, and there is nothing
+/// else to check — the CLI keeps its own login.
+pub fn cli_agent(
+    id: BackendKind,
+    label: &'static str,
+    binary: &'static str,
+    config: &Config,
+) -> ProviderInfo {
+    let command = match id {
+        BackendKind::Codex => config.agent.codex.command.clone(),
+        BackendKind::Gemini => config.agent.gemini.command.clone(),
+        _ => binary.to_string(),
+    };
+    let installed = which(&command).is_some();
+    let model = match id {
+        BackendKind::Codex => config.agent.codex.model.clone(),
+        BackendKind::Gemini => config.agent.gemini.model.clone(),
+        _ => None,
+    };
+    ProviderInfo {
+        id,
+        label,
+        summary: "the vendor's own CLI, driven headless",
+        installed,
+        // The CLI holds its own credentials; we cannot see them, so installed
+        // is as much as we can honestly say.
+        connected: installed,
+        login: vec![binary.into(), "login".into()],
+        install_hint: match id {
+            BackendKind::Codex => "npm i -g @openai/codex",
+            BackendKind::Gemini => "npm i -g @google/gemini-cli",
+            _ => "npm i -g <package>",
+        },
+        detail: match (installed, model) {
+            (true, Some(model)) => model,
+            (true, None) => command,
+            (false, _) => "command not found".into(),
+        },
+    }
 }
 
 pub fn opencode() -> ProviderInfo {

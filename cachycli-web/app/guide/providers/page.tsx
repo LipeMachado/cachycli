@@ -77,6 +77,19 @@ npm install -g @anthropic-ai/claude-code
         </Callout>
       </ArticleBlock>
 
+      <ArticleBlock title="Connect Codex or Gemini">
+        <p className="text-[0.96rem]" style={{ color: "var(--ink-60)" }}>
+          The other two CLI agents work the same way: CachyCLI runs them headless and renders what
+          they do. Their own login is what counts — CachyCLI never sees it.
+        </p>
+        <Code>{`$ npm i -g @openai/codex     # then: cachycli --provider codex
+$ npm i -g @google/gemini-cli # then: cachycli --provider gemini`}</Code>
+        <p className="text-[0.96rem]" style={{ color: "var(--ink-60)" }}>
+          Both keep their own session ids, so <code className="code">--resume</code> continues the
+          conversation there instead of starting over.
+        </p>
+      </ArticleBlock>
+
       <ArticleBlock title="Use your own models">
         <p className="text-[0.96rem]" style={{ color: "var(--ink-60)" }}>
           Add an endpoint once and it appears in the model picker — a hosted API or something running

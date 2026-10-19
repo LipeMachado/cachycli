@@ -13,6 +13,10 @@ approval prompts, themes — that drives whichever agent you already use.
 Sessions, subagents, goals, workflows, worktrees, memory and sharing are
 Cachy's own, so they work the same whichever provider answers.
 
+Grok is one of the endpoints the built-in loop speaks: pick `grok-4` in
+`/model` and set `XAI_API_KEY`. The same is true of anything
+OpenAI-compatible — `base_url` plus a key.
+
 ```
    ⣀⣀⣀⣀⡀    ⣀⣀⡀
   ⣼⣿⠟⠛⠛⢿⣦  ⢸⣿⠛⢛⣿⡆   Cachy 0.1.0
@@ -110,7 +114,9 @@ cachycli agent stdio
 | --- | --- | --- |
 | `opencode` | Drives your `opencode` installation (models, logins, tools) — CLI transport by default, HTTP + SSE server optional | `/provider` or `--provider opencode` |
 | `claude-code` | Drives the Claude Code CLI (`claude -p --output-format stream-json`) with your subscription | `/provider` or `--provider claude-code` |
-| `native` | Built-in agent loop (tools, subagents, compaction) over any OpenAI-compatible or Anthropic endpoint | `/provider` or `--provider native` |
+| `codex` | Drives the OpenAI Codex CLI (`codex exec --json`) with its own login | `/provider` or `--provider codex` |
+| `gemini` | Drives the Gemini CLI (`gemini -p --output-format stream-json`) | `/provider` or `--provider gemini` |
+| `native` | Built-in agent loop (tools, subagents, compaction) over any OpenAI-compatible or Anthropic endpoint — including xAI's `api.x.ai` for Grok | `/provider` or `--provider native` |
 | `acp` | Connects to any Agent Client Protocol agent — over stdio, or over a WebSocket when `[agent.acp] url` is set — and renders its updates | `/provider` or `--provider acp` |
 
 An ACP agent can also live on another machine — the socket replaces the command:

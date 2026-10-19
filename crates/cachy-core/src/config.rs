@@ -26,6 +26,10 @@ pub enum BackendKind {
     Opencode,
     /// Drive the Claude Code CLI in headless streaming mode.
     ClaudeCode,
+    /// Drive the OpenAI Codex CLI (`codex exec --json`).
+    Codex,
+    /// Drive the Gemini CLI (`gemini -p --output-format stream-json`).
+    Gemini,
     /// Talk to any Agent Client Protocol agent over stdio.
     Acp,
 }
@@ -37,6 +41,8 @@ impl BackendKind {
             BackendKind::Native => "native",
             BackendKind::Opencode => "opencode",
             BackendKind::ClaudeCode => "claude-code",
+            BackendKind::Codex => "codex",
+            BackendKind::Gemini => "gemini",
             BackendKind::Acp => "acp",
         }
     }
@@ -46,6 +52,8 @@ impl BackendKind {
         Some(match name.trim().to_ascii_lowercase().as_str() {
             "opencode" | "oc" => BackendKind::Opencode,
             "claude-code" | "claude" | "cc" => BackendKind::ClaudeCode,
+            "codex" | "openai-codex" => BackendKind::Codex,
+            "gemini" | "google" | "gemini-cli" => BackendKind::Gemini,
             "native" | "models" | "model" => BackendKind::Native,
             "acp" | "editor" => BackendKind::Acp,
             _ => return None,
@@ -129,6 +137,10 @@ pub struct AgentConfig {
     pub acp: AcpConfig,
     /// Claude Code backend settings.
     pub claude: ClaudeCodeConfig,
+    /// Codex CLI settings.
+    pub codex: CliAgentConfig,
+    /// Gemini CLI settings.
+    pub gemini: CliAgentConfig,
     /// Default system prompt override.
     pub system_prompt_override: Option<String>,
     /// Extra rules appended to the system prompt.
@@ -147,6 +159,14 @@ impl Default for AgentConfig {
             opencode: OpencodeConfig::default(),
             acp: AcpConfig::default(),
             claude: ClaudeCodeConfig::default(),
+            codex: CliAgentConfig {
+                command: "codex".into(),
+                ..Default::default()
+            },
+            gemini: CliAgentConfig {
+                command: "gemini".into(),
+                ..Default::default()
+            },
             system_prompt_override: None,
             rules: Vec::new(),
         }
@@ -213,6 +233,20 @@ impl Default for OpencodeConfig {
             transport: OpencodeTransport::Auto,
         }
     }
+}
+
+/// Settings shared by the CLI agents we drive (`[agent.codex]`, `[agent.gemini]`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CliAgentConfig {
+    /// The command to run, when it is not on PATH under its usual name.
+    pub command: String,
+    /// Model override passed to the CLI.
+    pub model: Option<String>,
+    /// Let the CLI run without asking (its own bypass flag).
+    pub always_approve: bool,
+    /// Extra arguments appended to every invocation.
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -693,6 +727,31 @@ pub fn merge(base: &mut Config, layer: Config) {
     }
     if layer.agent.claude.model.is_some() {
         base.agent.claude.model = layer.agent.claude.model.clone();
+    }
+    // The CLI agents: everything the user set has to survive the merge.
+    if !layer.agent.codex.command.is_empty() {
+        base.agent.codex.command = layer.agent.codex.command.clone();
+    }
+    if layer.agent.codex.model.is_some() {
+        base.agent.codex.model = layer.agent.codex.model.clone();
+    }
+    if layer.agent.codex.always_approve {
+        base.agent.codex.always_approve = true;
+    }
+    if !layer.agent.codex.args.is_empty() {
+        base.agent.codex.args = layer.agent.codex.args.clone();
+    }
+    if !layer.agent.gemini.command.is_empty() {
+        base.agent.gemini.command = layer.agent.gemini.command.clone();
+    }
+    if layer.agent.gemini.model.is_some() {
+        base.agent.gemini.model = layer.agent.gemini.model.clone();
+    }
+    if layer.agent.gemini.always_approve {
+        base.agent.gemini.always_approve = true;
+    }
+    if !layer.agent.gemini.args.is_empty() {
+        base.agent.gemini.args = layer.agent.gemini.args.clone();
     }
     if layer.agent.claude.always_approve {
         base.agent.claude.always_approve = true;

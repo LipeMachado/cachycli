@@ -162,6 +162,24 @@ pub fn builtin_models() -> Vec<Model> {
         200_000,
         ApiBackend::Chat,
     );
+    push(
+        "grok-4",
+        "grok-4",
+        "https://api.x.ai/v1",
+        "Grok 4 (xAI)",
+        &["XAI_API_KEY"],
+        256_000,
+        ApiBackend::Chat,
+    );
+    push(
+        "grok-4-mini",
+        "grok-4-mini",
+        "https://api.x.ai/v1",
+        "Grok 4 Mini (xAI)",
+        &["XAI_API_KEY"],
+        256_000,
+        ApiBackend::Chat,
+    );
     out
 }
 

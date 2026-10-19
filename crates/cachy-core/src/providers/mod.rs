@@ -4,6 +4,7 @@
 pub mod acp_client;
 pub mod anthropic;
 pub mod claude_code;
+pub mod cli_agent;
 pub mod openai;
 pub mod opencode;
 

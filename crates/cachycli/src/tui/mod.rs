@@ -2192,6 +2192,27 @@ async fn build_backend(
                 acp: None,
             })
         }
+        BackendKind::Codex | BackendKind::Gemini => {
+            let dialect = if backend_kind == BackendKind::Codex {
+                cachy_core::providers::cli_agent::Dialect::Codex
+            } else {
+                cachy_core::providers::cli_agent::Dialect::Gemini
+            };
+            let backend = cachy_core::providers::cli_agent::CliAgentBackend::new(
+                dialect,
+                config.clone(),
+                cwd.to_path_buf(),
+                tx,
+                true,
+            );
+            Ok(Backend {
+                kind: backend_kind,
+                session: backend.clone(),
+                native: None,
+                opencode: None,
+                acp: None,
+            })
+        }
         BackendKind::ClaudeCode => {
             let backend = cachy_core::providers::claude_code::ClaudeCodeBackend::new(
                 config.clone(),
