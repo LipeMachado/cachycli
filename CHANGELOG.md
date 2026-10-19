@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- `/model` shows the models of **every provider you are signed in to**, grouped
+  by provider, not only the one you are on. Choosing a model from another
+  provider switches to it and applies the model, and both are remembered.
+- The CLI agents (Codex, Gemini, Claude Code) have no command that lists their
+  models, so their names come from a small built-in list; `[agent.<name>] model`
+  still overrides anything.
+
 ## 0.2.0
 
 - Two more CLI agents: **Codex** (`codex exec --json`) and **Gemini**

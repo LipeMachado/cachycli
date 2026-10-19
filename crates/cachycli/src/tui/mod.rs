@@ -1423,8 +1423,41 @@ pub async fn run(mut config: Arc<Config>, cwd: PathBuf, opts: TuiOptions) -> Res
             }
             Action::SetModel(name) => {
                 let name = name.trim().to_string();
-                if name.is_empty() {
+                // "<provider>::<model>" is what the merged /model list hands
+                // over; a bare name stays on the provider you are on.
+                let (wanted, model) = match name.split_once("::") {
+                    Some((provider, model)) => (Some(provider.to_string()), model.to_string()),
+                    None => (None, name.clone()),
+                };
+                if model.is_empty() {
                     app.set_status("usage: /model <provider/model>");
+                } else if let Some(provider) = wanted
+                    .clone()
+                    .filter(|provider| *provider != app.backend_label)
+                {
+                    // Another provider owns this model: switch, then apply it.
+                    app.pending_model = Some(model.clone());
+                    app.pending_action = Some(Action::SetProvider(provider));
+                } else if matches!(backend.kind, BackendKind::Codex | BackendKind::Gemini) {
+                    // The CLI agents take the model on their own command line,
+                    // so it lives in the config.
+                    let section = format!("agent.{}", backend.kind.provider_name());
+                    if persist_setting(&cwd, &section, "model", &format!("{model:?}")) {
+                        app.model_label = model.clone();
+                        app.set_status(format!(
+                            "{} will use {model} on the next message",
+                            backend.kind.provider_name()
+                        ));
+                    } else {
+                        app.set_status("could not write ~/.cachy/config.toml");
+                    }
+                } else if backend.kind == BackendKind::ClaudeCode {
+                    if persist_setting(&cwd, "agent.claude", "model", &format!("{model:?}")) {
+                        app.model_label = model.clone();
+                        app.set_status(format!("Claude Code will use {model}"));
+                    } else {
+                        app.set_status("could not write ~/.cachy/config.toml");
+                    }
                 } else if let Some(opencode) = &backend.opencode {
                     // opencode models are named `provider/model`; refuse typos so
                     // the label and the next request stay meaningful.
@@ -1539,6 +1572,31 @@ pub async fn run(mut config: Arc<Config>, cwd: PathBuf, opts: TuiOptions) -> Res
                                         ),
                                         kind: NoticeKind::Info,
                                     });
+                                    // A model picked from the merged list lands
+                                    // on the provider it came from.
+                                    if let Some(model) = app.pending_model.take() {
+                                        app.model_label = model.clone();
+                                        if let Some(opencode) = &backend.opencode {
+                                            opencode.set_model_override(Some(model.clone())).await;
+                                        } else {
+                                            let section = format!("agent.{}", kind.provider_name());
+                                            let key = if kind == BackendKind::ClaudeCode {
+                                                "agent.claude".to_string()
+                                            } else {
+                                                section
+                                            };
+                                            let _ = persist_setting(
+                                                &cwd,
+                                                &key,
+                                                "model",
+                                                &format!("{model:?}"),
+                                            );
+                                        }
+                                        app.set_status(format!(
+                                            "{} · {model}",
+                                            kind.provider_name()
+                                        ));
+                                    }
                                     if !persist_setting(
                                         &cwd,
                                         "agent",
@@ -2507,6 +2565,39 @@ fn sessions_picker_state(cwd: &std::path::Path) -> PickerState {
 /// Choices shown by `/model`: opencode's own list when that provider is
 /// active, the configured catalog otherwise.
 fn model_picker_state(config: &Config, app: &App) -> PickerState {
+    // Every provider you can use, grouped by provider, so a model from another
+    // one is two keystrokes away instead of a /provider trip.
+    if !app.agent_model_options.is_empty() {
+        let mut items = Vec::new();
+        let mut values = Vec::new();
+        let current = format!("{}::{}", app.backend_label, app.model_label);
+        for (value, hint) in &app.agent_model_options {
+            let mut note = hint.trim_start_matches("· ").to_string();
+            if *value == current {
+                note = if note.is_empty() {
+                    "current".to_string()
+                } else {
+                    format!("{note} · current")
+                };
+            }
+            let label = match value.split_once("::") {
+                Some((_, model)) => model,
+                None => value.as_str(),
+            };
+            items.push(if note.is_empty() {
+                label.to_string()
+            } else {
+                format!("{label}  ({note})")
+            });
+            values.push(value.clone());
+        }
+        return PickerState {
+            query: String::new(),
+            selected: 0,
+            items,
+            values,
+        };
+    }
     if app.provider_is_opencode {
         let listed: Vec<String> = app
             .opencode_model_options
@@ -2612,6 +2703,48 @@ fn fill_menu_choices(
                 info.id.provider_name().to_string(),
                 format!("{} — {}", info.label, info.summary),
             )
+        })
+        .collect();
+    // Every provider you can actually use, so /model shows the models your
+    // logins have instead of only the current provider's.
+    app.agent_model_options = crate::providers::detect(config)
+        .iter()
+        .filter(|info| info.installed)
+        .flat_map(|info| {
+            let id = info.id;
+            let entries: Vec<(String, String)> = match id {
+                BackendKind::Native => models::catalog(config)
+                    .into_iter()
+                    .map(|model| {
+                        (
+                            format!("{}::{}", id.provider_name(), model.name),
+                            format!("{} · {}", info.label, model.display()),
+                        )
+                    })
+                    .collect(),
+                BackendKind::Acp => Vec::new(),
+                BackendKind::Opencode => app
+                    .opencode_model_options
+                    .lock()
+                    .map(|list| {
+                        list.iter()
+                            .map(|(value, hint)| {
+                                (format!("{}::{}", id.provider_name(), value), hint.clone())
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                _ => crate::providers::models_for(id)
+                    .into_iter()
+                    .map(|model| {
+                        (
+                            format!("{}::{model}", id.provider_name()),
+                            format!("{} · {model}", info.label),
+                        )
+                    })
+                    .collect(),
+            };
+            entries
         })
         .collect();
     app.native_model_options = models::catalog(config)

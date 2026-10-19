@@ -38,6 +38,20 @@ pub fn detect(config: &Config) -> Vec<ProviderInfo> {
     ]
 }
 
+/// The models a provider offers, for the `/model` picker.
+///
+/// The CLI agents have no command that lists theirs, so these are the names
+/// their own documentation gives; a wrong one costs a failed turn, not a
+/// broken interface, and `[agent.<name>] model` overrides them anyway.
+pub fn models_for(id: BackendKind) -> Vec<&'static str> {
+    match id {
+        BackendKind::Codex => vec!["gpt-5-codex", "gpt-5", "gpt-5-mini", "o3", "o4-mini"],
+        BackendKind::Gemini => vec!["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+        BackendKind::ClaudeCode => vec!["sonnet", "opus", "haiku"],
+        _ => Vec::new(),
+    }
+}
+
 /// A CLI agent: installed means the command is there, and there is nothing
 /// else to check — the CLI keeps its own login.
 pub fn cli_agent(

@@ -597,6 +597,10 @@ pub struct App {
     pub benching: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// True when the active provider is opencode (models come from there).
     pub provider_is_opencode: bool,
+    /// Models of every provider you can use, as `provider::model`.
+    pub agent_model_options: Vec<(String, String)>,
+    /// A model chosen from another provider, applied once the switch is done.
+    pub pending_model: Option<String>,
     /// The last model-list failure we told the user about, so a repeated one
     /// stays quiet.
     pub opencode_models_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -702,6 +706,8 @@ impl App {
             bench_results: std::sync::Arc::new(std::sync::Mutex::new(load_bench_results())),
             benching: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             provider_is_opencode: false,
+            agent_model_options: Vec::new(),
+            pending_model: None,
             opencode_models_error: Arc::new(std::sync::Mutex::new(None)),
             opencode_key_expired: false,
             queue: Vec::new(),
@@ -3010,30 +3016,14 @@ or switch to a free model with /model (the `opencode/*-free` ones and \
                             .map(|path| (path.clone(), String::new())),
                     );
                 } else if cmd.name == "/model" {
-                    if self.provider_is_opencode {
-                        if let Ok(list) = self.opencode_model_options.lock() {
-                            for (id, _) in list.iter() {
-                                let mut hint = self.model_hint(id);
-                                if *id == self.model_label {
-                                    hint = if hint.is_empty() {
-                                        "· current".to_string()
-                                    } else {
-                                        format!("{hint} · current")
-                                    };
-                                }
-                                options.push((id.clone(), hint));
-                            }
-                        }
-                    }
-                    if options.is_empty() {
-                        if self.provider_is_opencode {
-                            // Another provider's models would be a lie here:
-                            // the opencode list is still being read, or could
-                            // not be read at all.
-                            options.push((String::new(), "reading opencode models…".into()));
-                        } else {
-                            options.extend(self.native_model_options.iter().cloned());
-                        }
+                    // The models of every provider you can use, as
+                    // `provider::model` — choosing one switches provider too.
+                    if !self.agent_model_options.is_empty() {
+                        options.extend(self.agent_model_options.iter().cloned());
+                    } else if self.provider_is_opencode {
+                        // Nothing to offer yet: the list is still being read, or
+                        // could not be read at all. Never another provider's.
+                        options.push((String::new(), "reading opencode models…".into()));
                     }
                 }
                 if !options.is_empty() {
