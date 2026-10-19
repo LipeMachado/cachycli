@@ -43,7 +43,11 @@ impl OpenAiProvider {
                         }
                     }
                     crate::message::Role::Assistant if !m.tool_calls.is_empty() => {
-                        obj["content"] = if m.content.is_empty() { Value::Null } else { json!(m.content) };
+                        obj["content"] = if m.content.is_empty() {
+                            Value::Null
+                        } else {
+                            json!(m.content)
+                        };
                         obj["tool_calls"] = json!(m
                             .tool_calls
                             .iter()
@@ -150,7 +154,9 @@ impl LlmProvider for OpenAiProvider {
             while let Some(pos) = buffer.find('\n') {
                 let line: String = buffer.drain(..=pos).collect();
                 let line = line.trim();
-                let Some(data) = line.strip_prefix("data:") else { continue };
+                let Some(data) = line.strip_prefix("data:") else {
+                    continue;
+                };
                 let data = data.trim();
                 if data == "[DONE]" {
                     // Some servers keep the connection open after the terminator.
@@ -159,15 +165,23 @@ impl LlmProvider for OpenAiProvider {
                 if data.is_empty() {
                     continue;
                 }
-                let Ok(value) = serde_json::from_str::<Value>(data) else { continue };
+                let Ok(value) = serde_json::from_str::<Value>(data) else {
+                    continue;
+                };
                 if let Some(err) = value.get("error") {
                     return Err(anyhow!("model error: {err}"));
                 }
                 if let Some(usage) = value.get("usage").filter(|u| !u.is_null()) {
                     saw_usage = true;
                     let _ = tx.send(ProviderEvent::Usage {
-                        input_tokens: usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
-                        output_tokens: usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                        input_tokens: usage
+                            .get("prompt_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0),
+                        output_tokens: usage
+                            .get("completion_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0),
                         cached_input_tokens: usage
                             .get("prompt_tokens_details")
                             .and_then(|d| d.get("cached_tokens"))
@@ -175,12 +189,16 @@ impl LlmProvider for OpenAiProvider {
                             .unwrap_or(0),
                     });
                 }
-                let Some(choices) = value.get("choices").and_then(|c| c.as_array()) else { continue };
+                let Some(choices) = value.get("choices").and_then(|c| c.as_array()) else {
+                    continue;
+                };
                 for choice in choices {
                     if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str()) {
                         finish = Some(reason.to_string());
                     }
-                    let Some(delta) = choice.get("delta") else { continue };
+                    let Some(delta) = choice.get("delta") else {
+                        continue;
+                    };
                     if let Some(reasoning) = delta
                         .get("reasoning_content")
                         .or_else(|| delta.get("reasoning"))
@@ -209,7 +227,10 @@ impl LlmProvider for OpenAiProvider {
                                 .unwrap_or("")
                                 .to_string();
                             if !name.is_empty() {
-                                let _ = tx.send(ProviderEvent::ToolCall { id: id.clone(), name });
+                                let _ = tx.send(ProviderEvent::ToolCall {
+                                    id: id.clone(),
+                                    name,
+                                });
                             }
                             if let Some(args) = call
                                 .get("function")

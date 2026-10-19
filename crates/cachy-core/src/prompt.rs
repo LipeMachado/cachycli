@@ -60,7 +60,9 @@ pub fn discover_rule_files(cwd: &Path) -> Vec<PathBuf> {
 pub fn read_rules(cwd: &Path) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for path in discover_rule_files(cwd) {
-        let Ok(raw) = std::fs::read_to_string(&path) else { continue };
+        let Ok(raw) = std::fs::read_to_string(&path) else {
+            continue;
+        };
         let mut text = raw;
         if text.len() > RULE_FILE_CAP {
             text.truncate(RULE_FILE_CAP);
@@ -143,7 +145,10 @@ fn environment_block() -> String {
     let mut out = String::new();
     out.push_str(&format!("Working directory: {}\n", cwd.display()));
     out.push_str(&format!("Platform: {}\n", std::env::consts::OS));
-    out.push_str(&format!("Date: {}\n", chrono::Utc::now().format("%Y-%m-%d")));
+    out.push_str(&format!(
+        "Date: {}\n",
+        chrono::Utc::now().format("%Y-%m-%d")
+    ));
     if let Some(git) = git_context(&cwd) {
         out.push_str(&git);
     }
@@ -220,7 +225,10 @@ pub fn build_system_prompt(inputs: &PromptInputs<'_>) -> String {
     }
 
     for skill in inputs.injected_skills {
-        out.push_str(&format!("\n\n<skill name=\"{}\">\n{}\n</skill>", skill.name, skill.body));
+        out.push_str(&format!(
+            "\n\n<skill name=\"{}\">\n{}\n</skill>",
+            skill.name, skill.body
+        ));
     }
 
     // Memory.
@@ -230,8 +238,14 @@ pub fn build_system_prompt(inputs: &PromptInputs<'_>) -> String {
         let _ = memory::ensure_scope(&global);
         let _ = memory::ensure_scope(&ws);
         out.push_str("\n\n<memory>\n");
-        out.push_str(&format!("Global memory directory: {}\n", global.scope_dir().display()));
-        out.push_str(&format!("Workspace memory directory: {}\n", ws.scope_dir().display()));
+        out.push_str(&format!(
+            "Global memory directory: {}\n",
+            global.scope_dir().display()
+        ));
+        out.push_str(&format!(
+            "Workspace memory directory: {}\n",
+            ws.scope_dir().display()
+        ));
         if let Some(idx) = memory::index_text(&global) {
             out.push_str("\n## Global memory index\n");
             out.push_str(&idx);

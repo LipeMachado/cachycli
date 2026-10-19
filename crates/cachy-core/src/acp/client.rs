@@ -20,11 +20,14 @@ use crate::session::PlanEntry;
 use crate::tools::TodoItem;
 
 /// Where the ACP messages go: a child process or a WebSocket.
-type AcpSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type AcpSocket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 enum AcpWriter {
     Stdio(Mutex<ChildStdin>),
-    Socket(Mutex<futures_util::stream::SplitSink<AcpSocket, tokio_tungstenite::tungstenite::Message>>),
+    Socket(
+        Mutex<futures_util::stream::SplitSink<AcpSocket, tokio_tungstenite::tungstenite::Message>>,
+    ),
 }
 
 /// A live ACP agent connection.
@@ -104,7 +107,11 @@ impl AcpClient {
             )
             .await?;
         if let Some(info) = result.get("agentInfo") {
-            let name = info.get("title").or_else(|| info.get("name")).and_then(|v| v.as_str()).unwrap_or("");
+            let name = info
+                .get("title")
+                .or_else(|| info.get("name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             if !name.is_empty() {
                 *client.agent_name.lock().await = name.to_string();
                 *client.label.lock().await = name.to_string();
@@ -128,7 +135,9 @@ impl AcpClient {
             if trimmed.is_empty() {
                 continue;
             }
-            let Ok(message) = serde_json::from_str::<Value>(trimmed) else { continue };
+            let Ok(message) = serde_json::from_str::<Value>(trimmed) else {
+                continue;
+            };
             self.dispatch(message).await;
         }
         // Fail any pending requests.
@@ -144,15 +153,26 @@ impl AcpClient {
         if !method.is_empty() {
             if id.is_some() {
                 // agent → client request
-                let result = self.handle_agent_request(method, message.get("params").cloned().unwrap_or(json!({}))).await;
+                let result = self
+                    .handle_agent_request(
+                        method,
+                        message.get("params").cloned().unwrap_or(json!({})),
+                    )
+                    .await;
                 let response = match result {
                     Ok(v) => json!({ "jsonrpc": "2.0", "id": id, "result": v }),
-                    Err(e) => json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32603, "message": e.to_string() } }),
+                    Err(e) => {
+                        json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32603, "message": e.to_string() } })
+                    }
                 };
                 let _ = self.write_message(response).await;
             } else {
                 // notification
-                self.handle_notification(method, message.get("params").cloned().unwrap_or(json!({}))).await;
+                self.handle_notification(
+                    method,
+                    message.get("params").cloned().unwrap_or(json!({})),
+                )
+                .await;
             }
             return;
         }
@@ -173,7 +193,10 @@ impl AcpClient {
             return;
         }
         let update = params.get("update").cloned().unwrap_or(json!({}));
-        let kind = update.get("sessionUpdate").and_then(|v| v.as_str()).unwrap_or("");
+        let kind = update
+            .get("sessionUpdate")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         match kind {
             "agent_message_chunk" => {
                 let text = content_text(update.get("content").unwrap_or(&Value::Null));
@@ -188,10 +211,26 @@ impl AcpClient {
                 }
             }
             "tool_call" => {
-                let id = update.get("toolCallId").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let title = update.get("title").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
-                let kind = update.get("kind").and_then(|v| v.as_str()).unwrap_or("other").to_string();
-                let status = update.get("status").and_then(|v| v.as_str()).unwrap_or("pending").to_string();
+                let id = update
+                    .get("toolCallId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let title = update
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("tool")
+                    .to_string();
+                let kind = update
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("other")
+                    .to_string();
+                let status = update
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("pending")
+                    .to_string();
                 let _ = self.tx.send(AgentEvent::ToolCall {
                     id: id.clone(),
                     name: title.clone(),
@@ -208,7 +247,11 @@ impl AcpClient {
                 });
             }
             "tool_call_update" => {
-                let id = update.get("toolCallId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let id = update
+                    .get("toolCallId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let status = update
                     .get("status")
                     .and_then(|v| v.as_str())
@@ -226,7 +269,11 @@ impl AcpClient {
                     id,
                     status,
                     title: None,
-                    summary: if summary.trim().is_empty() { None } else { Some(summary.trim().to_string()) },
+                    summary: if summary.trim().is_empty() {
+                        None
+                    } else {
+                        Some(summary.trim().to_string())
+                    },
                     meta: None,
                 });
             }
@@ -237,9 +284,21 @@ impl AcpClient {
                     .map(|list| {
                         list.iter()
                             .map(|e| PlanEntry {
-                                content: e.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                                status: e.get("status").and_then(|v| v.as_str()).unwrap_or("pending").to_string(),
-                                priority: e.get("priority").and_then(|v| v.as_str()).unwrap_or("medium").to_string(),
+                                content: e
+                                    .get("content")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                status: e
+                                    .get("status")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("pending")
+                                    .to_string(),
+                                priority: e
+                                    .get("priority")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("medium")
+                                    .to_string(),
                             })
                             .collect::<Vec<_>>()
                     })
@@ -247,7 +306,11 @@ impl AcpClient {
                 let _ = self.tx.send(AgentEvent::Plan(entries.clone()));
                 let todos: Vec<TodoItem> = entries
                     .into_iter()
-                    .map(|e| TodoItem { content: e.content, status: e.status, priority: e.priority })
+                    .map(|e| TodoItem {
+                        content: e.content,
+                        status: e.status,
+                        priority: e.priority,
+                    })
                     .collect();
                 let _ = self.tx.send(AgentEvent::Todos(todos));
             }
@@ -300,12 +363,18 @@ impl AcpClient {
                     })
                     .collect();
                 let (reply_tx, mut reply_rx) = mpsc::unbounded_channel();
-                self.permission_replies.lock().await.insert(id.clone(), reply_tx);
+                self.permission_replies
+                    .lock()
+                    .await
+                    .insert(id.clone(), reply_tx);
                 let _ = self.tx.send(AgentEvent::PermissionRequest {
                     id: id.clone(),
                     tool: "acp".into(),
                     title,
-                    detail: params.get("toolCall").map(|t| t.to_string()).unwrap_or_default(),
+                    detail: params
+                        .get("toolCall")
+                        .map(|t| t.to_string())
+                        .unwrap_or_default(),
                     options: option_labels,
                 });
                 // Wait for the UI to select an option.
@@ -342,10 +411,7 @@ impl AcpClient {
     }
 
     /// Connect to a remote ACP agent over a WebSocket and initialize.
-    pub async fn connect(
-        url: &str,
-        tx: mpsc::UnboundedSender<AgentEvent>,
-    ) -> Result<Arc<Self>> {
+    pub async fn connect(url: &str, tx: mpsc::UnboundedSender<AgentEvent>) -> Result<Arc<Self>> {
         use futures_util::StreamExt;
         let (socket, _) = tokio_tungstenite::connect_async(url)
             .await
@@ -380,7 +446,9 @@ impl AcpClient {
                     if std::env::var("CACHY_ACP_DEBUG").is_ok() {
                         eprintln!("[acp-client] <- {}", &trimmed[..trimmed.len().min(160)]);
                     }
-                    let Ok(value) = serde_json::from_str::<Value>(trimmed) else { continue };
+                    let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+                        continue;
+                    };
                     this.dispatch(value).await;
                 }
                 let mut pending = this.pending.lock().await;
@@ -455,8 +523,10 @@ impl AcpClient {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
-        self.write_message(json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }))
-            .await?;
+        self.write_message(
+            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }),
+        )
+        .await?;
         match rx.await {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(e)) => Err(anyhow!("{e}")),
@@ -531,7 +601,11 @@ impl AcpClient {
     }
 
     /// Send a prompt turn; returns the stop reason.
-    pub async fn prompt(&self, blocks: Vec<ContentBlock>, cancel: CancellationToken) -> Result<StopReason> {
+    pub async fn prompt(
+        &self,
+        blocks: Vec<ContentBlock>,
+        cancel: CancellationToken,
+    ) -> Result<StopReason> {
         let session_id = self
             .session_id
             .lock()
@@ -565,7 +639,9 @@ impl AcpClient {
 
     pub async fn cancel(&self) {
         if let Some(session_id) = self.session_id.lock().await.clone() {
-            let _ = self.notify("session/cancel", json!({ "sessionId": session_id })).await;
+            let _ = self
+                .notify("session/cancel", json!({ "sessionId": session_id }))
+                .await;
         }
     }
 
@@ -630,8 +706,13 @@ impl AgentSession for AcpBackend {
         *self.cancel.lock().await = Some(token.clone());
         let started = std::time::Instant::now();
         // ACP agents do not echo the user message; surface it locally.
-        let _ = self.usage_tx.send(AgentEvent::UserMessage { text: text.clone() });
-        let result = self.client.prompt(vec![ContentBlock::text(text)], token).await;
+        let _ = self
+            .usage_tx
+            .send(AgentEvent::UserMessage { text: text.clone() });
+        let result = self
+            .client
+            .prompt(vec![ContentBlock::text(text)], token)
+            .await;
         let _ = self.cancel.lock().await.take();
         let stop_reason = match &result {
             Ok(reason) => *reason,
@@ -693,7 +774,11 @@ impl AgentSession for AcpBackend {
 }
 
 /// Permission reply helper used by the TUI for ACP-backed sessions.
-pub async fn reply_acp_permission(client: &AcpClient, request_id: &str, choice: crate::permissions::ApprovalChoice) {
+pub async fn reply_acp_permission(
+    client: &AcpClient,
+    request_id: &str,
+    choice: crate::permissions::ApprovalChoice,
+) {
     let option = match choice {
         crate::permissions::ApprovalChoice::Allow => "allow_once",
         crate::permissions::ApprovalChoice::AllowAlways => "allow_always",

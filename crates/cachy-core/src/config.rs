@@ -331,7 +331,10 @@ pub struct SessionConfig {
 
 impl Default for SessionConfig {
     fn default() -> Self {
-        Self { auto_compact_threshold_percent: 85, load_envrc: true }
+        Self {
+            auto_compact_threshold_percent: 85,
+            load_envrc: true,
+        }
     }
 }
 
@@ -351,7 +354,9 @@ pub struct ToolsConfig {
 
 impl Default for ToolsConfig {
     fn default() -> Self {
-        Self { respect_gitignore: true }
+        Self {
+            respect_gitignore: true,
+        }
     }
 }
 
@@ -371,7 +376,10 @@ pub struct BashToolConfig {
 
 impl Default for BashToolConfig {
     fn default() -> Self {
-        Self { timeout_secs: 120.0, output_byte_limit: 65536 }
+        Self {
+            timeout_secs: 120.0,
+            output_byte_limit: 65536,
+        }
     }
 }
 
@@ -469,7 +477,10 @@ pub struct MemoryIndexConfig {
 
 impl Default for MemoryIndexConfig {
     fn default() -> Self {
-        Self { max_chunk_chars: 1600, chunk_overlap_chars: 320 }
+        Self {
+            max_chunk_chars: 1600,
+            chunk_overlap_chars: 320,
+        }
     }
 }
 
@@ -569,7 +580,11 @@ pub fn load(cwd: &Path) -> Result<LoadedConfig> {
 
     apply_env_overrides(&mut config);
 
-    Ok(LoadedConfig { config, sources, project_config })
+    Ok(LoadedConfig {
+        config,
+        sources,
+        project_config,
+    })
 }
 
 /// Where project configs are looked for: from the repo root down to `cwd`,
@@ -595,8 +610,8 @@ fn project_config_dirs(cwd: &Path, repo_root: Option<&Path>, home: Option<&Path>
 fn merge_file(base: &mut Config, path: &Path) -> Result<()> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading config {}", path.display()))?;
-    let layer: Config = toml::from_str(&raw)
-        .with_context(|| format!("parsing config {}", path.display()))?;
+    let layer: Config =
+        toml::from_str(&raw).with_context(|| format!("parsing config {}", path.display()))?;
     merge(base, layer);
     Ok(())
 }
@@ -896,7 +911,8 @@ fn apply_env_overrides(config: &mut Config) {
     if let Ok(v) = std::env::var("CACHY_MODEL") {
         config.models.default = Some(v);
     }
-    if let Ok(v) = std::env::var("CACHY_PROVIDER").or_else(|_| std::env::var("CACHY_AGENT_BACKEND")) {
+    if let Ok(v) = std::env::var("CACHY_PROVIDER").or_else(|_| std::env::var("CACHY_AGENT_BACKEND"))
+    {
         config.agent.provider = Some(v);
     }
     if let Ok(v) = std::env::var("OPENCODE_SERVER_URL") {
@@ -963,13 +979,22 @@ url = "ws://build-box:8765"
             Some(Path::new("/home/me/proj")),
             Some(Path::new("/home/me")),
         );
-        assert!(dirs.contains(&PathBuf::from("/home/me/proj/sub")), "cwd applies");
-        assert!(dirs.contains(&PathBuf::from("/home/me/proj")), "the repo root applies");
+        assert!(
+            dirs.contains(&PathBuf::from("/home/me/proj/sub")),
+            "cwd applies"
+        );
+        assert!(
+            dirs.contains(&PathBuf::from("/home/me/proj")),
+            "the repo root applies"
+        );
         assert!(
             !dirs.iter().any(|dir| dir == Path::new("/home/me")),
             "home is the user config, not a project: {dirs:?}"
         );
-        assert!(!dirs.iter().any(|dir| dir == Path::new("/")), "nothing above home: {dirs:?}");
+        assert!(
+            !dirs.iter().any(|dir| dir == Path::new("/")),
+            "nothing above home: {dirs:?}"
+        );
     }
 
     #[test]

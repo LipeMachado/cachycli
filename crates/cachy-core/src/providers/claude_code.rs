@@ -135,7 +135,9 @@ impl ClaudeCodeBackend {
             if trimmed.is_empty() {
                 continue;
             }
-            let Ok(event) = serde_json::from_str::<Value>(trimmed) else { continue };
+            let Ok(event) = serde_json::from_str::<Value>(trimmed) else {
+                continue;
+            };
 
             if let Some(session) = event.get("session_id").and_then(|v| v.as_str()) {
                 let mut guard = self.session_id.lock().await;
@@ -159,12 +161,17 @@ impl ClaudeCodeBackend {
                                 "text_delta" => {
                                     if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
                                         streamed_text = true;
-                                        let _ = self.tx.send(AgentEvent::TextDelta(text.to_string()));
+                                        let _ =
+                                            self.tx.send(AgentEvent::TextDelta(text.to_string()));
                                     }
                                 }
                                 "thinking_delta" => {
-                                    if let Some(text) = delta.get("thinking").and_then(|v| v.as_str()) {
-                                        let _ = self.tx.send(AgentEvent::ReasoningDelta(text.to_string()));
+                                    if let Some(text) =
+                                        delta.get("thinking").and_then(|v| v.as_str())
+                                    {
+                                        let _ = self
+                                            .tx
+                                            .send(AgentEvent::ReasoningDelta(text.to_string()));
                                     }
                                 }
                                 _ => {}
@@ -173,8 +180,16 @@ impl ClaudeCodeBackend {
                         "content_block_start" => {
                             let block = inner.get("content_block").cloned().unwrap_or(json!({}));
                             if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
-                                let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("call").to_string();
-                                let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
+                                let id = block
+                                    .get("id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("call")
+                                    .to_string();
+                                let name = block
+                                    .get("name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("tool")
+                                    .to_string();
                                 let _ = self.tx.send(AgentEvent::ToolCall {
                                     id: id.clone(),
                                     name: name.clone(),
@@ -199,8 +214,16 @@ impl ClaudeCodeBackend {
                                     }
                                 }
                                 "tool_use" => {
-                                    let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("call").to_string();
-                                    let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
+                                    let id = block
+                                        .get("id")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("call")
+                                        .to_string();
+                                    let name = block
+                                        .get("name")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("tool")
+                                        .to_string();
                                     let input = block.get("input").cloned().unwrap_or(json!({}));
                                     let title = tool_title(&name, &input);
                                     let _ = self.tx.send(AgentEvent::ToolCall {
@@ -219,9 +242,18 @@ impl ClaudeCodeBackend {
                         }
                     }
                     if let Some(usage) = message.get("usage") {
-                        let input = usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let output = usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let cache = usage.get("cache_read_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let input = usage
+                            .get("input_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+                        let output = usage
+                            .get("output_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+                        let cache = usage
+                            .get("cache_read_input_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
                         let mut ctx = self.context.write().await;
                         ctx.0 = ctx.0.max(input + cache);
                         ctx.1 = ctx.1.max(200_000);
@@ -243,11 +275,18 @@ impl ClaudeCodeBackend {
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("call")
                                     .to_string();
-                                let failed = block.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
+                                let failed = block
+                                    .get("is_error")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
                                 let summary = summarize_tool_result(block.get("content"));
                                 let _ = self.tx.send(AgentEvent::ToolCallUpdate {
                                     id,
-                                    status: if failed { "failed".into() } else { "completed".into() },
+                                    status: if failed {
+                                        "failed".into()
+                                    } else {
+                                        "completed".into()
+                                    },
                                     title: None,
                                     summary: Some(summary),
                                     meta: None,
@@ -257,7 +296,10 @@ impl ClaudeCodeBackend {
                     }
                 }
                 "result" => {
-                    let subtype = event.get("subtype").and_then(|v| v.as_str()).unwrap_or("success");
+                    let subtype = event
+                        .get("subtype")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("success");
                     if subtype != "success" {
                         saw_error = true;
                         stop = StopReason::Error;
@@ -268,9 +310,15 @@ impl ClaudeCodeBackend {
                         }
                     }
                     if let Some(cost) = event.get("total_cost_usd").and_then(|v| v.as_f64()) {
-                        let _ = self.tx.send(AgentEvent::Info(format!("claude-code · ${cost:.4}")));
+                        let _ = self
+                            .tx
+                            .send(AgentEvent::Info(format!("claude-code · ${cost:.4}")));
                     }
-                    if event.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    if event
+                        .get("is_error")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
+                    {
                         saw_error = true;
                         stop = StopReason::Error;
                     }
@@ -300,9 +348,23 @@ impl ClaudeCodeBackend {
 }
 
 fn tool_title(name: &str, input: &Value) -> String {
-    for key in ["command", "file_path", "path", "pattern", "url", "query", "description"] {
+    for key in [
+        "command",
+        "file_path",
+        "path",
+        "pattern",
+        "url",
+        "query",
+        "description",
+    ] {
         if let Some(value) = input.get(key).and_then(|v| v.as_str()) {
-            let short: String = value.lines().next().unwrap_or("").chars().take(60).collect();
+            let short: String = value
+                .lines()
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(60)
+                .collect();
             if !short.trim().is_empty() {
                 return format!("{name} {short}");
             }
@@ -356,7 +418,11 @@ impl AgentSession for ClaudeCodeBackend {
         self.cancel_current();
     }
     fn session_id(&self) -> String {
-        self.session_id.try_lock().ok().and_then(|g| g.clone()).unwrap_or_default()
+        self.session_id
+            .try_lock()
+            .ok()
+            .and_then(|g| g.clone())
+            .unwrap_or_default()
     }
     async fn backend_session(&self) -> Option<String> {
         self.session_id.lock().await.clone()
@@ -372,7 +438,10 @@ impl AgentSession for ClaudeCodeBackend {
         true
     }
     fn model_label(&self) -> String {
-        self.label.try_read().map(|l| l.clone()).unwrap_or_else(|_| "Claude Code".into())
+        self.label
+            .try_read()
+            .map(|l| l.clone())
+            .unwrap_or_else(|_| "Claude Code".into())
     }
     fn context_usage(&self) -> (u64, u64) {
         self.context.try_read().map(|c| *c).unwrap_or((0, 0))

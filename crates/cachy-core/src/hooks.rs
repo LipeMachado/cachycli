@@ -107,10 +107,12 @@ pub fn is_folder_trusted(cwd: &Path) -> bool {
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default();
     let canonical = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
-    store
-        .trusted_folders
-        .iter()
-        .any(|f| Path::new(f).canonicalize().map(|p| p == canonical).unwrap_or(false))
+    store.trusted_folders.iter().any(|f| {
+        Path::new(f)
+            .canonicalize()
+            .map(|p| p == canonical)
+            .unwrap_or(false)
+    })
 }
 
 pub fn trust_folder(cwd: &Path) -> std::io::Result<()> {
@@ -169,13 +171,23 @@ fn config_hooks(config: &Config) -> Vec<(HookEvent, Vec<HookMatcher>)> {
 
 pub fn parse_hook_file(raw: &str, source: &str) -> Vec<DiscoveredHook> {
     let mut out = Vec::new();
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else { return out };
-    let Some(hooks) = value.get("hooks").and_then(|h| h.as_object()) else { return out };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return out;
+    };
+    let Some(hooks) = value.get("hooks").and_then(|h| h.as_object()) else {
+        return out;
+    };
     for (event_name, matchers) in hooks {
-        let Some(event) = HookEvent::parse(event_name) else { continue };
-        let Some(list) = matchers.as_array() else { continue };
+        let Some(event) = HookEvent::parse(event_name) else {
+            continue;
+        };
+        let Some(list) = matchers.as_array() else {
+            continue;
+        };
         for matcher_value in list {
-            let Ok(matcher) = serde_json::from_value::<HookMatcher>(matcher_value.clone()) else { continue };
+            let Ok(matcher) = serde_json::from_value::<HookMatcher>(matcher_value.clone()) else {
+                continue;
+            };
             for hook in matcher.hooks {
                 out.push(DiscoveredHook {
                     event,
@@ -196,17 +208,14 @@ pub fn matcher_applies(matcher: &Option<String>, tool: &str) -> bool {
     if matcher.trim().is_empty() {
         return true;
     }
-    matcher
-        .split('|')
-        .map(|p| p.trim())
-        .any(|pattern| {
-            if pattern.ends_with('*') {
-                let prefix = pattern.trim_end_matches('*');
-                tool.starts_with(prefix)
-            } else {
-                pattern.eq_ignore_ascii_case(tool)
-            }
-        })
+    matcher.split('|').map(|p| p.trim()).any(|pattern| {
+        if pattern.ends_with('*') {
+            let prefix = pattern.trim_end_matches('*');
+            tool.starts_with(prefix)
+        } else {
+            pattern.eq_ignore_ascii_case(tool)
+        }
+    })
 }
 
 /// Run the hooks for an event. Returns combined stdout of all hooks.
@@ -233,19 +242,28 @@ pub async fn run_event(
         }
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
-        let result = tokio::time::timeout(std::time::Duration::from_secs(hook.timeout.max(1)), async {
-            let child = cmd.spawn()?;
-            child.wait_with_output().await
-        })
-        .await;
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(hook.timeout.max(1)), async {
+                let child = cmd.spawn()?;
+                child.wait_with_output().await
+            })
+            .await;
         match result {
             Ok(Ok(output)) => {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                results.push((hook.command.clone(), if stderr.is_empty() { stdout } else { stderr }, output.status.success()));
+                results.push((
+                    hook.command.clone(),
+                    if stderr.is_empty() { stdout } else { stderr },
+                    output.status.success(),
+                ));
             }
             Ok(Err(e)) => results.push((hook.command.clone(), format!("spawn failed: {e}"), false)),
-            Err(_) => results.push((hook.command.clone(), format!("timed out after {}s", hook.timeout), false)),
+            Err(_) => results.push((
+                hook.command.clone(),
+                format!("timed out after {}s", hook.timeout),
+                false,
+            )),
         }
     }
     results

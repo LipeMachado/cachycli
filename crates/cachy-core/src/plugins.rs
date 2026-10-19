@@ -50,9 +50,7 @@ pub async fn fetch_index(source: &str) -> anyhow::Result<Vec<PluginEntry>> {
             .await?
     } else {
         let expanded = match source.strip_prefix("~/") {
-            Some(rest) => dirs::home_dir()
-                .unwrap_or_default()
-                .join(rest),
+            Some(rest) => dirs::home_dir().unwrap_or_default().join(rest),
             None => std::path::PathBuf::from(source),
         };
         std::fs::read_to_string(expanded)?

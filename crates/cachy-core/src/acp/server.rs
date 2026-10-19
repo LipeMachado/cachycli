@@ -73,7 +73,12 @@ impl AcpServer {
     }
 }
 
-pub async fn run_stdio(config: Arc<Config>, model_override: Option<String>, always_approve: bool, cwd: PathBuf) -> Result<()> {
+pub async fn run_stdio(
+    config: Arc<Config>,
+    model_override: Option<String>,
+    always_approve: bool,
+    cwd: PathBuf,
+) -> Result<()> {
     let stdin = tokio::io::stdin();
     let mut reader = BufReader::new(stdin);
     let mut server = AcpServer::new(config, model_override, always_approve, cwd);
@@ -188,7 +193,10 @@ impl ServerState {
     async fn dispatch(self: &Arc<Self>, method: &str, params: Value) -> Result<Value> {
         match method {
             "initialize" => {
-                *self.client_caps.lock().await = params.get("clientCapabilities").cloned().unwrap_or(json!({}));
+                *self.client_caps.lock().await = params
+                    .get("clientCapabilities")
+                    .cloned()
+                    .unwrap_or(json!({}));
                 Ok(json!({
                     "protocolVersion": PROTOCOL_VERSION,
                     "agentCapabilities": {
@@ -212,7 +220,10 @@ impl ServerState {
                     .map(PathBuf::from)
                     .unwrap_or_else(|| self.cwd.clone());
                 let (session_id, session) = self.create_session(&cwd, None).await?;
-                self.sessions.lock().await.insert(session_id.clone(), session);
+                self.sessions
+                    .lock()
+                    .await
+                    .insert(session_id.clone(), session);
                 Ok(json!({ "sessionId": session_id }))
             }
             "session/load" => {
@@ -240,7 +251,10 @@ impl ServerState {
                         }),
                     );
                 }
-                self.sessions.lock().await.insert(session_id.clone(), session);
+                self.sessions
+                    .lock()
+                    .await
+                    .insert(session_id.clone(), session);
                 Ok(json!({}))
             }
             "session/prompt" => {
@@ -260,7 +274,13 @@ impl ServerState {
                     .ok_or_else(|| anyhow::anyhow!("unknown session {session_id}"))?;
                 let stop = session
                     .agent
-                    .run_turn(text, TurnOptions { max_turns: None, interactive: true })
+                    .run_turn(
+                        text,
+                        TurnOptions {
+                            max_turns: None,
+                            interactive: true,
+                        },
+                    )
                     .await;
                 let stop = match stop {
                     Ok(s) => s,
@@ -283,11 +303,22 @@ impl ServerState {
         }
     }
 
-    async fn create_session(&self, cwd: &Path, resume: Option<&str>) -> Result<(String, Arc<AcpSession>)> {
-        let model = models::resolve(&self.config, self.model_override.as_deref())
-            .ok_or_else(|| anyhow::anyhow!("no model configured; add [model.<name>] to config.toml"))?;
+    async fn create_session(
+        &self,
+        cwd: &Path,
+        resume: Option<&str>,
+    ) -> Result<(String, Arc<AcpSession>)> {
+        let model =
+            models::resolve(&self.config, self.model_override.as_deref()).ok_or_else(|| {
+                anyhow::anyhow!("no model configured; add [model.<name>] to config.toml")
+            })?;
         let store = match resume {
-            Some(id) => SessionStore::open(cwd, id).unwrap_or(SessionStore::create(cwd, &model.model_id, "cachy", None)?),
+            Some(id) => SessionStore::open(cwd, id).unwrap_or(SessionStore::create(
+                cwd,
+                &model.model_id,
+                "cachy",
+                None,
+            )?),
             None => SessionStore::create(cwd, &model.model_id, "cachy", None)?,
         };
         let session_id = store.summary.id.clone();
@@ -298,10 +329,17 @@ impl ServerState {
             Vec::new()
         };
         let (tx, mut rx) = mpsc::unbounded_channel::<AgentEvent>();
-        let mcp = Arc::new(McpManager::new(self.config.mcp_servers.clone(), session_id.clone()));
+        let mcp = Arc::new(McpManager::new(
+            self.config.mcp_servers.clone(),
+            session_id.clone(),
+        ));
         mcp.initialize().await;
         let tools = ToolRegistry::default_registry(&self.config);
-        let engine = PermissionEngine::new(RuleSet::default(), crate::permissions::PermissionMode::Default, self.always_approve);
+        let engine = PermissionEngine::new(
+            RuleSet::default(),
+            crate::permissions::PermissionMode::Default,
+            self.always_approve,
+        );
         let agent = NativeAgent::new(
             cwd.to_path_buf(),
             self.config.clone(),
@@ -328,7 +366,8 @@ impl ServerState {
         let agent_for_task = agent.clone();
         let events_task = tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
-                this.forward_event(&session_id_for_task, event, &agent_for_task).await;
+                this.forward_event(&session_id_for_task, event, &agent_for_task)
+                    .await;
             }
         });
 
@@ -363,7 +402,12 @@ impl ServerState {
         }));
     }
 
-    async fn forward_event(self: &Arc<Self>, session_id: &str, event: AgentEvent, agent: &Arc<NativeAgent>) {
+    async fn forward_event(
+        self: &Arc<Self>,
+        session_id: &str,
+        event: AgentEvent,
+        agent: &Arc<NativeAgent>,
+    ) {
         match event {
             AgentEvent::TextDelta(text) => {
                 self.send_update(
@@ -377,7 +421,13 @@ impl ServerState {
                     json!({ "sessionUpdate": "agent_thought_chunk", "content": { "type": "text", "text": text } }),
                 );
             }
-            AgentEvent::ToolCall { id, name, title, kind, arguments } => {
+            AgentEvent::ToolCall {
+                id,
+                name,
+                title,
+                kind,
+                arguments,
+            } => {
                 self.send_update(
                     session_id,
                     json!({
@@ -391,7 +441,13 @@ impl ServerState {
                     }),
                 );
             }
-            AgentEvent::ToolCallUpdate { id, status, title, summary, meta } => {
+            AgentEvent::ToolCallUpdate {
+                id,
+                status,
+                title,
+                summary,
+                meta,
+            } => {
                 let mut content = Vec::new();
                 if let Some(summary) = summary {
                     content.push(json!({ "type": "content", "content": { "type": "text", "text": summary } }));
@@ -431,7 +487,12 @@ impl ServerState {
                     }),
                 );
             }
-            AgentEvent::Usage { input_tokens, output_tokens, context_used, context_size } => {
+            AgentEvent::Usage {
+                input_tokens,
+                output_tokens,
+                context_used,
+                context_size,
+            } => {
                 self.send_update(
                     session_id,
                     json!({
@@ -443,7 +504,13 @@ impl ServerState {
                 );
                 let _ = (input_tokens, output_tokens);
             }
-            AgentEvent::PermissionRequest { id, tool, title, detail, options } => {
+            AgentEvent::PermissionRequest {
+                id,
+                tool,
+                title,
+                detail,
+                options,
+            } => {
                 // Ask the ACP client for permission.
                 let request_id = self.next_id.fetch_add(1, Ordering::SeqCst);
                 let (tx, rx) = oneshot::channel();
@@ -488,7 +555,8 @@ impl ServerState {
                 let agent = agent.clone();
                 let call_id = id.clone();
                 tokio::spawn(async move {
-                    let outcome = tokio::time::timeout(std::time::Duration::from_secs(600), rx).await;
+                    let outcome =
+                        tokio::time::timeout(std::time::Duration::from_secs(600), rx).await;
                     let decision = match outcome {
                         Ok(Ok(response)) => {
                             let option = response
@@ -499,7 +567,9 @@ impl ServerState {
                                 .unwrap_or("reject_once")
                                 .to_string();
                             match option.as_str() {
-                                "allow_always" => ApprovalDecision::Choice(ApprovalChoice::AllowAlways),
+                                "allow_always" => {
+                                    ApprovalDecision::Choice(ApprovalChoice::AllowAlways)
+                                }
                                 "allow_once" => ApprovalDecision::Choice(ApprovalChoice::Allow),
                                 _ => ApprovalDecision::Choice(ApprovalChoice::Reject),
                             }
@@ -515,8 +585,12 @@ impl ServerState {
                     json!({ "sessionUpdate": "agent_message_chunk", "content": { "type": "text", "text": format!("error: {message}") } }),
                 );
             }
-            AgentEvent::Started { .. } | AgentEvent::UserMessage { .. } | AgentEvent::MessageComplete { .. }
-            | AgentEvent::ReasoningComplete { .. } | AgentEvent::TurnEnd { .. } | AgentEvent::BackgroundFinished { .. }
+            AgentEvent::Started { .. }
+            | AgentEvent::UserMessage { .. }
+            | AgentEvent::MessageComplete { .. }
+            | AgentEvent::ReasoningComplete { .. }
+            | AgentEvent::TurnEnd { .. }
+            | AgentEvent::BackgroundFinished { .. }
             | AgentEvent::Info(_) => {}
         }
     }
@@ -583,7 +657,10 @@ fn prompt_to_text(blocks: &Value) -> String {
 
 /// Store an ACP session update into our persistence layer.
 pub fn record_update(store: &mut SessionStore, update: &Value) {
-    let kind = update.get("sessionUpdate").and_then(|v| v.as_str()).unwrap_or("");
+    let kind = update
+        .get("sessionUpdate")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let ts = chrono::Utc::now().to_rfc3339();
     let _ = match kind {
         "agent_message_chunk" => store.append_update(&SessionUpdate::AgentMessage {

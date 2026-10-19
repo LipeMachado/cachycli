@@ -62,7 +62,10 @@ pub fn domain_allowed(config: &crate::config::Config, url: &str) -> bool {
         .trim_start_matches("www.")
         .to_ascii_lowercase();
     let allow: Vec<String> = if config.toolset.web_fetch.allowed_domains.is_empty() {
-        DEFAULT_ALLOWED_DOMAINS.iter().map(|s| s.to_string()).collect()
+        DEFAULT_ALLOWED_DOMAINS
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     } else {
         config.toolset.web_fetch.allowed_domains.clone()
     };
@@ -189,11 +192,16 @@ pub fn html_to_text(html: &str) -> String {
                     "ndash" => '–',
                     "#x27" | "#X27" => '\'',
                     other if other.starts_with("#x") || other.starts_with("#X") => {
-                        u32::from_str_radix(&other[2..], 16).ok().and_then(char::from_u32).unwrap_or(' ')
+                        u32::from_str_radix(&other[2..], 16)
+                            .ok()
+                            .and_then(char::from_u32)
+                            .unwrap_or(' ')
                     }
-                    other if other.starts_with('#') => {
-                        other[1..].parse::<u32>().ok().and_then(char::from_u32).unwrap_or(' ')
-                    }
+                    other if other.starts_with('#') => other[1..]
+                        .parse::<u32>()
+                        .ok()
+                        .and_then(char::from_u32)
+                        .unwrap_or(' '),
                     _ => ' ',
                 };
                 out.push(decoded);
@@ -354,7 +362,8 @@ impl Tool for WebSearchTool {
                         for item in items.iter().take(8) {
                             let title = item.get("title").and_then(|t| t.as_str()).unwrap_or("");
                             let link = item.get("url").and_then(|t| t.as_str()).unwrap_or("");
-                            let snippet = item.get("content").and_then(|t| t.as_str()).unwrap_or("");
+                            let snippet =
+                                item.get("content").and_then(|t| t.as_str()).unwrap_or("");
                             out.push_str(&format!("- {title}\n  {link}\n  {snippet}\n"));
                         }
                     }
@@ -393,7 +402,9 @@ fn urlencode(s: &str) -> String {
     let mut out = String::new();
     for b in s.as_bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(*b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(*b as char)
+            }
             b' ' => out.push('+'),
             _ => out.push_str(&format!("%{b:02X}")),
         }
@@ -480,9 +491,12 @@ mod tests {
             "example.com",
             "",
         ] {
-            let result = tool.run(serde_json::json!({ "url": url }), &ctx)
-                .await;
-            assert!(result.is_error, "{url:?} should be refused: {}", result.content);
+            let result = tool.run(serde_json::json!({ "url": url }), &ctx).await;
+            assert!(
+                result.is_error,
+                "{url:?} should be refused: {}",
+                result.content
+            );
         }
     }
 
@@ -506,7 +520,9 @@ mod tests {
 
     #[test]
     fn strips_html() {
-        let text = html_to_text("<h1>Title</h1><p>Hello <b>world</b> &amp; more</p><script>bad()</script>");
+        let text = html_to_text(
+            "<h1>Title</h1><p>Hello <b>world</b> &amp; more</p><script>bad()</script>",
+        );
         assert!(text.contains("# Title"));
         assert!(text.contains("Hello world & more"));
         assert!(!text.contains("bad()"));

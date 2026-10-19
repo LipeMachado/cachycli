@@ -58,8 +58,15 @@ impl Tool for ReadFileTool {
             return ToolResult::err("missing required argument: file_path");
         };
         let path = resolve(ctx, raw);
-        let offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(1).max(1) as usize;
-        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(READ_LINE_LIMIT as u64) as usize;
+        let offset = args
+            .get("offset")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .max(1) as usize;
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(READ_LINE_LIMIT as u64) as usize;
 
         let bytes = match tokio::fs::read(&path).await {
             Ok(b) => b,
@@ -70,7 +77,11 @@ impl Tool for ReadFileTool {
         }
         let text = String::from_utf8_lossy(&bytes);
         let truncated_bytes = text.len() > READ_BYTE_LIMIT;
-        let text_ref: &str = if truncated_bytes { &text[..READ_BYTE_LIMIT.min(text.len())] } else { &text };
+        let text_ref: &str = if truncated_bytes {
+            &text[..READ_BYTE_LIMIT.min(text.len())]
+        } else {
+            &text
+        };
 
         let mut out = String::new();
         let total_lines = text_ref.lines().count();
@@ -81,7 +92,8 @@ impl Tool for ReadFileTool {
             out.push_str("... [file truncated]\n");
         }
         if out.is_empty() {
-            out = format!("(file is empty or offset {offset} is past the end; {total_lines} lines)");
+            out =
+                format!("(file is empty or offset {offset} is past the end; {total_lines} lines)");
         }
         ToolResult::ok(out)
     }
@@ -210,7 +222,10 @@ impl Tool for SearchReplaceTool {
             Ok(c) => c,
             Err(e) => return ToolResult::err(format!("cannot read {}: {e}", path.display())),
         };
-        let replace_all = args.get("replace_all").and_then(|v| v.as_bool()).unwrap_or(false);
+        let replace_all = args
+            .get("replace_all")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let count = content.matches(old).count();
         if count == 0 {
             return ToolResult::err(format!(
@@ -233,7 +248,8 @@ impl Tool for SearchReplaceTool {
             return ToolResult::err(format!("cannot write {}: {e}", path.display()));
         }
         let added = count_added(Some(&content), &updated);
-        let removed = count_lines(Some(&content)) as i64 - count_lines(Some(&updated)) as i64 + added;
+        let removed =
+            count_lines(Some(&content)) as i64 - count_lines(Some(&updated)) as i64 + added;
         let meta = json!({
             "path": path,
             "added": added,
@@ -299,8 +315,18 @@ pub fn build_diff(old: &str, new: &str, path: &Path) -> String {
         let start_old = i;
         let start_new = j;
         let mut resync: Option<(usize, usize)> = None;
-        'outer: for (oi, old_line) in old_lines.iter().enumerate().take((i + 40).min(old_lines.len())).skip(i) {
-            for (nj, new_line) in new_lines.iter().enumerate().take((j + 40).min(new_lines.len())).skip(j) {
+        'outer: for (oi, old_line) in old_lines
+            .iter()
+            .enumerate()
+            .take((i + 40).min(old_lines.len()))
+            .skip(i)
+        {
+            for (nj, new_line) in new_lines
+                .iter()
+                .enumerate()
+                .take((j + 40).min(new_lines.len()))
+                .skip(j)
+            {
                 if old_line == new_line {
                     resync = Some((oi, nj));
                     break 'outer;
@@ -377,8 +403,16 @@ impl Tool for ListDirTool {
             let size = entry.metadata().await.map(|m| m.len()).unwrap_or(0);
             entries.push((name, is_dir, size));
         }
-        entries.sort_by(|a, b| (b.1, a.0.to_lowercase()).cmp(&(a.1, b.0.to_lowercase())).reverse());
-        entries.sort_by(|a, b| a.1.cmp(&b.1).reverse().then(a.0.to_lowercase().cmp(&b.0.to_lowercase())));
+        entries.sort_by(|a, b| {
+            (b.1, a.0.to_lowercase())
+                .cmp(&(a.1, b.0.to_lowercase()))
+                .reverse()
+        });
+        entries.sort_by(|a, b| {
+            a.1.cmp(&b.1)
+                .reverse()
+                .then(a.0.to_lowercase().cmp(&b.0.to_lowercase()))
+        });
         let mut out = String::new();
         for (name, is_dir, size) in &entries {
             if *is_dir {
@@ -437,13 +471,22 @@ impl Tool for GrepTool {
         let Some(pattern) = args.get("pattern").and_then(|v| v.as_str()) else {
             return ToolResult::err("missing required argument: pattern");
         };
-        let ci = args.get("case_insensitive").and_then(|v| v.as_bool()).unwrap_or(false);
-        let files_only = args.get("files_with_matches").and_then(|v| v.as_bool()).unwrap_or(false);
+        let ci = args
+            .get("case_insensitive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let files_only = args
+            .get("files_with_matches")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let limit = args
             .get("max_results")
             .and_then(|v| v.as_u64())
             .unwrap_or(GREP_MATCH_LIMIT as u64) as usize;
-        let re = match regex::RegexBuilder::new(pattern).case_insensitive(ci).build() {
+        let re = match regex::RegexBuilder::new(pattern)
+            .case_insensitive(ci)
+            .build()
+        {
             Ok(re) => re,
             Err(e) => return ToolResult::err(format!("invalid regex: {e}")),
         };
@@ -454,7 +497,9 @@ impl Tool for GrepTool {
             .unwrap_or_else(|| ctx.cwd.clone());
 
         let mut builder = ignore::WalkBuilder::new(&base);
-        builder.hidden(false).git_ignore(ctx.config.tools.respect_gitignore);
+        builder
+            .hidden(false)
+            .git_ignore(ctx.config.tools.respect_gitignore);
         if let Some(g) = args.get("glob").and_then(|v| v.as_str()) {
             let mut ob = ignore::overrides::OverrideBuilder::new(&base);
             if ob.add(g).is_ok() {
@@ -492,7 +537,12 @@ impl Tool for GrepTool {
                     } else {
                         let trimmed = line.trim_end();
                         let display_line: String = trimmed.chars().take(240).collect();
-                        hits.push(format!("{}:{}:{}", path.display(), lineno + 1, display_line));
+                        hits.push(format!(
+                            "{}:{}:{}",
+                            path.display(),
+                            lineno + 1,
+                            display_line
+                        ));
                     }
                     if hits.len() >= limit {
                         break;
@@ -633,9 +683,19 @@ mod tests {
         std::fs::write(&binary, [0xff, 0xfe, 0x00, 0x01, 0x80, 0x81]).unwrap();
         let text = dir.join("texto.txt");
         std::fs::write(&text, "café ☕\n日本語\n").unwrap();
-        for path in [missing.clone(), dir.to_string_lossy().to_string(), binary.to_string_lossy().to_string()] {
-            let result = ReadFileTool.run(serde_json::json!({ "file_path": path }), &ctx).await;
-            assert!(result.is_error, "read_file should refuse {path}: {:?}", result.content);
+        for path in [
+            missing.clone(),
+            dir.to_string_lossy().to_string(),
+            binary.to_string_lossy().to_string(),
+        ] {
+            let result = ReadFileTool
+                .run(serde_json::json!({ "file_path": path }), &ctx)
+                .await;
+            assert!(
+                result.is_error,
+                "read_file should refuse {path}: {:?}",
+                result.content
+            );
         }
         for offset in [0i64, 1, 99, -3] {
             let result = ReadFileTool
@@ -665,7 +725,10 @@ mod tests {
                 &ctx,
             )
             .await;
-        assert!(result.is_error, "missing old_string is an error, not a panic");
+        assert!(
+            result.is_error,
+            "missing old_string is an error, not a panic"
+        );
 
         // grep: an invalid regex, and a path that does not exist.
         for args in [
@@ -689,14 +752,22 @@ mod tests {
 
         // list_dir: missing, and a file instead of a directory.
         for path in [missing.clone(), text.to_string_lossy().to_string()] {
-            let result = ListDirTool.run(serde_json::json!({ "path": path }), &ctx).await;
+            let result = ListDirTool
+                .run(serde_json::json!({ "path": path }), &ctx)
+                .await;
             assert!(result.is_error, "list_dir should refuse {path}");
         }
 
         // write: a path inside a missing directory, and an empty path.
-        for path in [dir.join("a/b/c/out.txt").to_string_lossy().to_string(), String::new()] {
+        for path in [
+            dir.join("a/b/c/out.txt").to_string_lossy().to_string(),
+            String::new(),
+        ] {
             let result = WriteTool
-                .run(serde_json::json!({ "file_path": path, "content": "x" }), &ctx)
+                .run(
+                    serde_json::json!({ "file_path": path, "content": "x" }),
+                    &ctx,
+                )
                 .await;
             let _ = result;
         }

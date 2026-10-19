@@ -73,7 +73,13 @@ impl Model {
 /// Built-in catalog presets. These only need an API key (env var).
 pub fn builtin_models() -> Vec<Model> {
     let mut out = Vec::new();
-    let mut push = |name: &str, model_id: &str, base_url: &str, display: &str, env: &[&str], ctx: u64, backend: ApiBackend| {
+    let mut push = |name: &str,
+                    model_id: &str,
+                    base_url: &str,
+                    display: &str,
+                    env: &[&str],
+                    ctx: u64,
+                    backend: ApiBackend| {
         out.push(Model {
             name: name.into(),
             model_id: model_id.into(),
@@ -93,8 +99,24 @@ pub fn builtin_models() -> Vec<Model> {
             builtin: true,
         });
     };
-    push("gpt-5", "gpt-5", "https://api.openai.com/v1", "GPT-5 (OpenAI)", &["OPENAI_API_KEY"], 400_000, ApiBackend::Chat);
-    push("gpt-4o", "gpt-4o", "https://api.openai.com/v1", "GPT-4o (OpenAI)", &["OPENAI_API_KEY"], 128_000, ApiBackend::Chat);
+    push(
+        "gpt-5",
+        "gpt-5",
+        "https://api.openai.com/v1",
+        "GPT-5 (OpenAI)",
+        &["OPENAI_API_KEY"],
+        400_000,
+        ApiBackend::Chat,
+    );
+    push(
+        "gpt-4o",
+        "gpt-4o",
+        "https://api.openai.com/v1",
+        "GPT-4o (OpenAI)",
+        &["OPENAI_API_KEY"],
+        128_000,
+        ApiBackend::Chat,
+    );
     push(
         "claude-sonnet-4-5",
         "claude-sonnet-4-5",
@@ -104,9 +126,33 @@ pub fn builtin_models() -> Vec<Model> {
         200_000,
         ApiBackend::Anthropic,
     );
-    push("ollama", "llama3.1", "http://localhost:11434/v1", "Ollama (local)", &[], 128_000, ApiBackend::Chat);
-    push("lmstudio", "local-model", "http://localhost:1234/v1", "LM Studio (local)", &[], 32_000, ApiBackend::Chat);
-    push("vllm", "default", "http://localhost:8000/v1", "vLLM (local)", &[], 32_000, ApiBackend::Chat);
+    push(
+        "ollama",
+        "llama3.1",
+        "http://localhost:11434/v1",
+        "Ollama (local)",
+        &[],
+        128_000,
+        ApiBackend::Chat,
+    );
+    push(
+        "lmstudio",
+        "local-model",
+        "http://localhost:1234/v1",
+        "LM Studio (local)",
+        &[],
+        32_000,
+        ApiBackend::Chat,
+    );
+    push(
+        "vllm",
+        "default",
+        "http://localhost:8000/v1",
+        "vLLM (local)",
+        &[],
+        32_000,
+        ApiBackend::Chat,
+    );
     push(
         "opencode-zen",
         "opencode",
@@ -132,11 +178,18 @@ pub fn catalog(config: &Config) -> Vec<Model> {
     map.into_values().collect()
 }
 
-fn apply_custom(map: &mut BTreeMap<String, Model>, name: &str, cfg: &ModelConfig, endpoints_base: Option<&str>) {
+fn apply_custom(
+    map: &mut BTreeMap<String, Model>,
+    name: &str,
+    cfg: &ModelConfig,
+    endpoints_base: Option<&str>,
+) {
     let entry = map.entry(name.to_string()).or_insert_with(|| Model {
         name: name.to_string(),
         model_id: name.to_string(),
-        base_url: endpoints_base.unwrap_or("https://api.openai.com/v1").to_string(),
+        base_url: endpoints_base
+            .unwrap_or("https://api.openai.com/v1")
+            .to_string(),
         api_backend: ApiBackend::Chat,
         display_name: name.to_string(),
         description: None,
@@ -227,7 +280,10 @@ pub fn resolve(config: &Config, name: Option<&str>) -> Option<Model> {
     // No default: pick the first model with an available credential, else the
     // first builtin.
     let with_key = catalog.iter().find(|m| {
-        m.api_key.is_some() || m.env_keys.iter().any(|k| std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false))
+        m.api_key.is_some()
+            || m.env_keys
+                .iter()
+                .any(|k| std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false))
     });
     with_key.cloned().or_else(|| catalog.first().cloned())
 }

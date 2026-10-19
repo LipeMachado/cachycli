@@ -70,7 +70,9 @@ pub async fn run_workflow_steps(
             started_at: std::time::Instant::now(),
             finished_at: std::sync::Mutex::new(None),
             output: std::sync::Arc::new(tokio::sync::RwLock::new(String::new())),
-            status: std::sync::Arc::new(tokio::sync::RwLock::new(crate::tools::TaskStatus::Running)),
+            status: std::sync::Arc::new(tokio::sync::RwLock::new(
+                crate::tools::TaskStatus::Running,
+            )),
             cancel: cancel.clone(),
         });
         let _ = ctx.tasks.insert(task.clone()).await;
@@ -84,7 +86,8 @@ pub async fn run_workflow_steps(
                     crate::tools::TaskStatus::Failed(outcome.text.chars().take(200).collect())
                 } else {
                     crate::tools::TaskStatus::Completed
-                }).await;
+                })
+                .await;
                 outcome
             }),
         ));
@@ -142,7 +145,9 @@ pub async fn verify_goal_with(
             started_at: std::time::Instant::now(),
             finished_at: std::sync::Mutex::new(None),
             output: std::sync::Arc::new(tokio::sync::RwLock::new(String::new())),
-            status: std::sync::Arc::new(tokio::sync::RwLock::new(crate::tools::TaskStatus::Running)),
+            status: std::sync::Arc::new(tokio::sync::RwLock::new(
+                crate::tools::TaskStatus::Running,
+            )),
             cancel: cancel.clone(),
         });
         let _ = ctx.tasks.insert(task.clone()).await;
@@ -153,7 +158,8 @@ pub async fn verify_goal_with(
                 crate::tools::TaskStatus::Failed(outcome.text.chars().take(200).collect())
             } else {
                 crate::tools::TaskStatus::Completed
-            }).await;
+            })
+            .await;
             outcome.text
         }));
     }
@@ -257,9 +263,7 @@ pub async fn run_plan(
                     let outcome = runner.run_subagent(request, &ctx, cancel).await;
                     *task.output.write().await = outcome.text.clone();
                     task.finish(if outcome.is_error {
-                        crate::tools::TaskStatus::Failed(
-                            outcome.text.chars().take(200).collect(),
-                        )
+                        crate::tools::TaskStatus::Failed(outcome.text.chars().take(200).collect())
                     } else {
                         crate::tools::TaskStatus::Completed
                     })
@@ -470,7 +474,11 @@ impl crate::tools::Tool for SetGoalTool {
         } else {
             format!("goal set: {goal}")
         };
-        if args.get("verify").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if args
+            .get("verify")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             if cleared {
                 return ToolResult::err("cannot verify an empty goal");
             }
@@ -605,10 +613,7 @@ impl Tool for TaskTool {
         ToolKind::Task
     }
     fn title(&self, args: &Value) -> String {
-        format!(
-            "Subagent: {}",
-            super::short_target(args, &["description"])
-        )
+        format!("Subagent: {}", super::short_target(args, &["description"]))
     }
 
     async fn run(&self, args: Value, ctx: &ToolContext) -> ToolResult {
@@ -644,20 +649,33 @@ impl Tool for TaskTool {
             {
                 return ToolResult::err(format!(
                     "unknown subagent type \"{subagent_type}\"; known types: {}",
-                    SUBAGENT_TYPES.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
+                    SUBAGENT_TYPES
+                        .iter()
+                        .map(|(n, _)| *n)
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ));
             }
         }
         let Some(runner) = ctx.subagents.get().cloned() else {
             return ToolResult::err("subagents are not available in this session");
         };
-        let background = args.get("background").and_then(|v| v.as_bool()).unwrap_or(false);
+        let background = args
+            .get("background")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let request = SubagentRequest {
             subagent_type,
             description: description.clone(),
             prompt: prompt.to_string(),
-            isolated: args.get("isolated").and_then(|v| v.as_bool()).unwrap_or(false),
-            model: args.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            isolated: args
+                .get("isolated")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            model: args
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
         };
 
         if background {
@@ -679,7 +697,9 @@ impl Tool for TaskTool {
             let parent_ctx = clone_ctx(ctx);
             let events = ctx.events.clone();
             tokio::spawn(async move {
-                let outcome = runner.run_subagent(request, &parent_ctx, cancel.clone()).await;
+                let outcome = runner
+                    .run_subagent(request, &parent_ctx, cancel.clone())
+                    .await;
                 *output.write().await = outcome.text.clone();
                 *status.write().await = if outcome.is_error {
                     TaskStatus::Failed("subagent failed".into())
@@ -827,10 +847,18 @@ impl Tool for WaitTasksTool {
         let ids: Vec<String> = args
             .get("task_ids")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default();
-        let timeout = args.get("timeout_secs").and_then(|v| v.as_f64()).unwrap_or(300.0);
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs_f64(timeout.max(1.0));
+        let timeout = args
+            .get("timeout_secs")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(300.0);
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs_f64(timeout.max(1.0));
         loop {
             let tasks = if ids.is_empty() {
                 ctx.tasks.list().await
@@ -869,7 +897,9 @@ impl Tool for WaitTasksTool {
                 return ToolResult::ok(text);
             }
             if std::time::Instant::now() >= deadline {
-                return ToolResult::err(format!("timed out after {timeout}s waiting for tasks:\n{summary}"));
+                return ToolResult::err(format!(
+                    "timed out after {timeout}s waiting for tasks:\n{summary}"
+                ));
             }
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
@@ -918,7 +948,6 @@ impl Tool for KillTaskTool {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -951,10 +980,13 @@ mod tests {
         // depth 2 with max_depth 2 -> refused by the guard
         let refused = tool.run(args, &context(2, 2)).await;
         assert!(refused.is_error);
-        assert!(refused.content.contains("depth limit"), "{}", refused.content);
+        assert!(
+            refused.content.contains("depth limit"),
+            "{}",
+            refused.content
+        );
     }
 }
-
 
 #[cfg(test)]
 mod goal_tool_tests {
@@ -1026,7 +1058,6 @@ mod goal_tool_tests {
     }
 }
 
-
 #[cfg(test)]
 mod plan_tests {
     use super::*;
@@ -1079,12 +1110,23 @@ mod plan_tests {
             )
             .await;
         assert!(!out.is_error, "{}", out.content);
-        assert!(out.content.contains("find: saw: Find the bug"), "{}", out.content);
+        assert!(
+            out.content.contains("find: saw: Find the bug"),
+            "{}",
+            out.content
+        );
         // The dependent step saw the first step's report.
-        assert!(out.content.contains("Report from step 1"), "{}", out.content);
+        assert!(
+            out.content.contains("Report from step 1"),
+            "{}",
+            out.content
+        );
         // Both steps show up in the task registry.
         let tasks = ctx.tasks.list().await;
-        assert_eq!(tasks.iter().filter(|t| t.id.starts_with("plan-")).count(), 2);
+        assert_eq!(
+            tasks.iter().filter(|t| t.id.starts_with("plan-")).count(),
+            2
+        );
     }
 
     #[tokio::test]

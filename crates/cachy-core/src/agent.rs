@@ -25,12 +25,21 @@ use crate::tools::{ToolContext, ToolRegistry};
 /// Events emitted while an agent turn runs.
 #[derive(Debug, Clone)]
 pub enum AgentEvent {
-    Started { session_id: String, model: String },
-    UserMessage { text: String },
+    Started {
+        session_id: String,
+        model: String,
+    },
+    UserMessage {
+        text: String,
+    },
     TextDelta(String),
     ReasoningDelta(String),
-    MessageComplete { text: String },
-    ReasoningComplete { text: String },
+    MessageComplete {
+        text: String,
+    },
+    ReasoningComplete {
+        text: String,
+    },
     ToolCall {
         id: String,
         name: String,
@@ -151,7 +160,7 @@ pub struct NativeAgent {
     /// Agent profile text injected into the system prompt (`/personas`).
     persona: tokio::sync::RwLock<Option<String>>,
     /// What this session is working towards (`/goal`); lives in the context so
-     /// the `set_goal` tool can change it too.
+    /// the `set_goal` tool can change it too.
     goal: Arc<tokio::sync::RwLock<Option<String>>>,
     /// Hooks discovered for this directory, so a turn can run them.
     hooks: Vec<crate::hooks::DiscoveredHook>,
@@ -220,7 +229,10 @@ impl NativeAgent {
         });
 
         // Register the subagent runner now that the Arc exists.
-        let _ = agent.ctx.subagents.set(agent.clone() as Arc<dyn SubagentRunner>);
+        let _ = agent
+            .ctx
+            .subagents
+            .set(agent.clone() as Arc<dyn SubagentRunner>);
 
         let _ = tx.send(AgentEvent::Started {
             session_id: agent.session_id().await,
@@ -380,10 +392,8 @@ impl NativeAgent {
             for message in chunk {
                 transcript.push_str(&format!("{}: {}\n", message.role.as_str(), message.content));
                 for call in &message.tool_calls {
-                    transcript.push_str(&format!(
-                        "  [tool_call {} {}]\n",
-                        call.name, call.arguments
-                    ));
+                    transcript
+                        .push_str(&format!("  [tool_call {} {}]\n", call.name, call.arguments));
                 }
             }
             if transcript.len() > 24_000 {
@@ -448,7 +458,9 @@ impl NativeAgent {
         if let Ok(mut store) = self.session.try_lock() {
             let _ = store.rewrite_chat(&new_history);
         }
-        let _ = self.tx.send(AgentEvent::Info("Conversation compacted.".into()));
+        let _ = self
+            .tx
+            .send(AgentEvent::Info("Conversation compacted.".into()));
         Ok(())
     }
 
@@ -530,7 +542,9 @@ impl NativeAgent {
         token: CancellationToken,
     ) -> Result<StopReason> {
         let now = chrono::Utc::now().to_rfc3339();
-        let _ = self.tx.send(AgentEvent::UserMessage { text: user_text.to_string() });
+        let _ = self.tx.send(AgentEvent::UserMessage {
+            text: user_text.to_string(),
+        });
 
         // UserPromptSubmit hooks see the prompt before the model does.
         if !self.hooks.is_empty() {
@@ -595,7 +609,9 @@ impl NativeAgent {
             let (ptx, mut prx) = mpsc::unbounded_channel::<ProviderEvent>();
             let cancel_for_provider = token.clone();
             let provider_task = tokio::spawn(async move {
-                provider.chat(messages, specs, cancel_for_provider, ptx).await
+                provider
+                    .chat(messages, specs, cancel_for_provider, ptx)
+                    .await
             });
 
             let mut assistant = ChatMessage::assistant("");
@@ -623,14 +639,21 @@ impl NativeAgent {
                                 existing.name = name;
                             }
                         } else {
-                            calls.push(ToolCall { id, name, arguments: String::new() });
+                            calls.push(ToolCall {
+                                id,
+                                name,
+                                arguments: String::new(),
+                            });
                         }
                     }
                     ProviderEvent::ToolCallArgsDelta { id, args_delta } => {
                         let idx = if id.is_empty() {
                             calls.len().saturating_sub(1)
                         } else {
-                            calls.iter().position(|c| c.id == id).unwrap_or_else(|| calls.len().saturating_sub(1))
+                            calls
+                                .iter()
+                                .position(|c| c.id == id)
+                                .unwrap_or_else(|| calls.len().saturating_sub(1))
                         };
                         if let Some(call) = calls.get_mut(idx) {
                             if call.id.is_empty() {
@@ -684,7 +707,9 @@ impl NativeAgent {
             }
             if let Some(reasoning) = &assistant.reasoning {
                 if !reasoning.is_empty() {
-                    let _ = self.tx.send(AgentEvent::ReasoningComplete { text: reasoning.clone() });
+                    let _ = self.tx.send(AgentEvent::ReasoningComplete {
+                        text: reasoning.clone(),
+                    });
                 }
             }
             assistant.tool_calls = calls.clone();
@@ -726,7 +751,8 @@ impl NativeAgent {
                     Ok(r) => (r.content, r.is_error),
                     Err(e) => (format!("tool failed: {e}"), true),
                 };
-                let mut tool_msg = ChatMessage::tool_result(call.id.clone(), call.name.clone(), content.clone());
+                let mut tool_msg =
+                    ChatMessage::tool_result(call.id.clone(), call.name.clone(), content.clone());
                 tool_msg.ts = Some(chrono::Utc::now().to_rfc3339());
                 {
                     let mut history = self.history.lock().await;
@@ -789,7 +815,14 @@ impl NativeAgent {
         };
         let history = self.history.lock().await.clone();
         let mut digest = String::new();
-        for message in history.iter().rev().take(12).collect::<Vec<_>>().into_iter().rev() {
+        for message in history
+            .iter()
+            .rev()
+            .take(12)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+        {
             let text: String = message.content.chars().take(600).collect();
             digest.push_str(&format!("{}: {text}\n", message.role.as_str()));
         }
@@ -818,7 +851,12 @@ impl NativeAgent {
             skills: &skills,
             extra_rules: &[],
             model_name: &model.model_id,
-            agent_name: &self.config.agent.name.clone().unwrap_or_else(|| "cachy".into()),
+            agent_name: &self
+                .config
+                .agent
+                .name
+                .clone()
+                .unwrap_or_else(|| "cachy".into()),
             agent_persona: self.persona.read().await.clone(),
             goal: self.goal.read().await.clone(),
             injected_skills: &injected,
@@ -874,7 +912,10 @@ impl NativeAgent {
                 if opts.interactive && self.interactive {
                     let (tx, rx) = oneshot::channel();
                     self.approvals.lock().await.insert(call.id.clone(), tx);
-                    let options: Vec<String> = ApprovalChoice::ALL.iter().map(|c| c.label().to_string()).collect();
+                    let options: Vec<String> = ApprovalChoice::ALL
+                        .iter()
+                        .map(|c| c.label().to_string())
+                        .collect();
                     let detail = build_approval_detail(tool.name(), &args);
                     let _ = self.tx.send(AgentEvent::PermissionRequest {
                         id: call.id.clone(),
@@ -1065,7 +1106,12 @@ impl NativeAgent {
                 .ok_or_else(|| anyhow!("unknown subagent model {name}"))?,
             None => self.current_model().await,
         };
-        let session = SessionStore::create(&self.cwd, &model.model_id, &request.subagent_type, Some(&self.session_id().await))?;
+        let session = SessionStore::create(
+            &self.cwd,
+            &model.model_id,
+            &request.subagent_type,
+            Some(&self.session_id().await),
+        )?;
         let (tx, mut rx) = mpsc::unbounded_channel::<AgentEvent>();
 
         // Restricted toolset for read-only subagent types.
@@ -1098,7 +1144,10 @@ impl NativeAgent {
         }
         if let Some(enabled) = self.config.subagents.toggle.get(&request.subagent_type) {
             if !enabled {
-                anyhow::bail!("subagent type \"{}\" is disabled in config", request.subagent_type);
+                anyhow::bail!(
+                    "subagent type \"{}\" is disabled in config",
+                    request.subagent_type
+                );
             }
         }
 
@@ -1127,7 +1176,13 @@ impl NativeAgent {
             request.subagent_type, request.description, request.prompt
         );
         let child_id = child.session_id().await;
-        let run = child.run_turn(prompt, TurnOptions { max_turns: Some(self.max_turns), interactive: false });
+        let run = child.run_turn(
+            prompt,
+            TurnOptions {
+                max_turns: Some(self.max_turns),
+                interactive: false,
+            },
+        );
         let outcome = tokio::select! {
             r = run => r,
             _ = cancel.cancelled() => {
@@ -1146,7 +1201,11 @@ impl NativeAgent {
                     }
                     text.push_str(&t);
                 }
-                AgentEvent::Usage { input_tokens, output_tokens, .. } => {
+                AgentEvent::Usage {
+                    input_tokens,
+                    output_tokens,
+                    ..
+                } => {
                     usage.input_tokens = input_tokens;
                     usage.output_tokens = output_tokens;
                 }
@@ -1160,12 +1219,21 @@ impl NativeAgent {
                 Err(e) => format!("subagent failed: {e}"),
             };
         }
-        Ok(SubagentOutcome { text, session_id: child_id, usage, is_error })
+        Ok(SubagentOutcome {
+            text,
+            session_id: child_id,
+            usage,
+            is_error,
+        })
     }
 }
 
 fn summarize_result(result: &crate::tools::ToolResult, elapsed: f64) -> String {
-    let first = result.content.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+    let first = result
+        .content
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("");
     let summary: String = first.chars().take(120).collect();
     format!("{summary} ({elapsed:.1}s)")
 }
@@ -1196,7 +1264,11 @@ fn build_approval_detail(tool: &str, args: &Value) -> String {
             let path = args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
             format!("Edit {path}")
         }
-        "web_fetch" => args.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        "web_fetch" => args
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
         _ => args.to_string(),
     }
 }
@@ -1204,13 +1276,23 @@ fn build_approval_detail(tool: &str, args: &Value) -> String {
 #[async_trait]
 impl AgentSession for NativeAgent {
     async fn prompt(&self, text: String) -> Result<StopReason> {
-        self.run_turn(text, TurnOptions { max_turns: None, interactive: self.interactive }).await
+        self.run_turn(
+            text,
+            TurnOptions {
+                max_turns: None,
+                interactive: self.interactive,
+            },
+        )
+        .await
     }
     fn cancel(&self) {
         self.cancel_current();
     }
     fn session_id(&self) -> String {
-        self.session.try_lock().map(|s| s.summary.id.clone()).unwrap_or_default()
+        self.session
+            .try_lock()
+            .map(|s| s.summary.id.clone())
+            .unwrap_or_default()
     }
     fn model_label(&self) -> String {
         self.model_swap

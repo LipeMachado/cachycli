@@ -17,15 +17,15 @@ pub mod paths;
 pub mod permissions;
 pub mod personas;
 pub mod plugins;
-pub mod share;
-pub mod share_net;
-pub mod workflows;
 pub mod prompt;
 pub mod providers;
 pub mod session;
+pub mod share;
+pub mod share_net;
 pub mod skills;
 pub mod text;
 pub mod tools;
+pub mod workflows;
 
 /// CLI name.
 pub const APP_NAME: &str = "cachycli";

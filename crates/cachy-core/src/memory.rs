@@ -43,7 +43,13 @@ pub fn workspace_slug(cwd: &Path) -> String {
     }
     let sanitized: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let key = git_remote(cwd).unwrap_or_else(|| cwd.to_string_lossy().to_string());
     format!("{sanitized}-{:08x}", fnv1a(&key) as u32)
@@ -89,7 +95,10 @@ pub fn add_observation(scope: &Scope, text: &str) -> Result<PathBuf> {
     let dir = ensure_scope(scope)?;
     let ts = chrono::Utc::now().format("%Y%m%dT%H%M%S");
     let id = uuid::Uuid::new_v4().simple().to_string();
-    let path = dir.join("observations").join("_inbox").join(format!("{ts}-{}.md", &id[..8]));
+    let path = dir
+        .join("observations")
+        .join("_inbox")
+        .join(format!("{ts}-{}.md", &id[..8]));
     let content = format!("# Observation\n\n{}\n", text.trim());
     std::fs::write(&path, content)?;
     rebuild_index(scope)?;
@@ -121,14 +130,25 @@ pub fn write_topic(scope: &Scope, topic: &str, text: &str) -> Result<PathBuf> {
 pub fn topics(scope: &Scope) -> Vec<(String, PathBuf)> {
     let mut out = Vec::new();
     let dir = scope.scope_dir().join("topics");
-    let Ok(entries) = std::fs::read_dir(&dir) else { return out };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return out;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().map(|e| e == "md").unwrap_or(false) {
             let title = std::fs::read_to_string(&path)
                 .ok()
-                .and_then(|c| c.lines().find(|l| l.starts_with("# ")).map(|l| l[2..].trim().to_string()))
-                .unwrap_or_else(|| path.file_stem().unwrap_or_default().to_string_lossy().to_string());
+                .and_then(|c| {
+                    c.lines()
+                        .find(|l| l.starts_with("# "))
+                        .map(|l| l[2..].trim().to_string())
+                })
+                .unwrap_or_else(|| {
+                    path.file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                });
             out.push((title, path));
         }
     }

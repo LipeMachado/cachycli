@@ -55,7 +55,11 @@ impl ChatMessage {
     pub fn assistant(content: impl Into<String>) -> Self {
         Self::new(Role::Assistant, content)
     }
-    pub fn tool_result(tool_call_id: impl Into<String>, name: impl Into<String>, content: impl Into<String>) -> Self {
+    pub fn tool_result(
+        tool_call_id: impl Into<String>,
+        name: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
         let mut m = Self::new(Role::Tool, content);
         m.tool_call_id = Some(tool_call_id.into());
         m.name = Some(name.into());
@@ -86,7 +90,8 @@ pub struct ToolCall {
 impl ToolCall {
     /// Parse arguments into JSON, returning an object (empty when invalid).
     pub fn parsed_arguments(&self) -> serde_json::Value {
-        serde_json::from_str(&self.arguments).unwrap_or(serde_json::Value::Object(Default::default()))
+        serde_json::from_str(&self.arguments)
+            .unwrap_or(serde_json::Value::Object(Default::default()))
     }
 }
 
@@ -122,10 +127,22 @@ impl StopReason {
 pub enum ProviderEvent {
     TextDelta(String),
     ThoughtDelta(String),
-    ToolCall { id: String, name: String },
-    ToolCallArgsDelta { id: String, args_delta: String },
-    Usage { input_tokens: u64, output_tokens: u64, cached_input_tokens: u64 },
-    Done { stop_reason: StopReason },
+    ToolCall {
+        id: String,
+        name: String,
+    },
+    ToolCallArgsDelta {
+        id: String,
+        args_delta: String,
+    },
+    Usage {
+        input_tokens: u64,
+        output_tokens: u64,
+        cached_input_tokens: u64,
+    },
+    Done {
+        stop_reason: StopReason,
+    },
 }
 
 /// A completed assistant turn returned by providers that do not stream

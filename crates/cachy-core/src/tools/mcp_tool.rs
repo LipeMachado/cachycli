@@ -33,7 +33,11 @@ impl Tool for SearchTool {
     }
 
     async fn run(&self, args: Value, ctx: &ToolContext) -> ToolResult {
-        let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+        let query = args
+            .get("query")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_lowercase();
         let tools = ctx.mcp.list_tools().await;
         if tools.is_empty() {
             return ToolResult::ok(
@@ -52,7 +56,12 @@ impl Tool for SearchTool {
             if score > 0 {
                 matched.push((
                     score,
-                    format!("{}__{}\n  {}", t.server, t.name, t.description.replace('\n', " ")),
+                    format!(
+                        "{}__{}\n  {}",
+                        t.server,
+                        t.name,
+                        t.description.replace('\n', " ")
+                    ),
                 ));
             }
         }
@@ -63,7 +72,9 @@ impl Tool for SearchTool {
                 .map(|t| format!("{}__{}", t.server, t.name))
                 .collect::<Vec<_>>()
                 .join("\n");
-            return ToolResult::ok(format!("No tools matched \"{query}\". Available tools:\n{listing}"));
+            return ToolResult::ok(format!(
+                "No tools matched \"{query}\". Available tools:\n{listing}"
+            ));
         }
         matched.sort_by_key(|entry| std::cmp::Reverse(entry.0));
         ToolResult::ok(

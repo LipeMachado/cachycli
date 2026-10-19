@@ -61,7 +61,8 @@ impl LlmProvider for AnthropicProvider {
                         blocks.push(json!({ "type": "text", "text": m.content }));
                     }
                     for call in &m.tool_calls {
-                        let input: Value = serde_json::from_str(&call.arguments).unwrap_or(json!({}));
+                        let input: Value =
+                            serde_json::from_str(&call.arguments).unwrap_or(json!({}));
                         blocks.push(json!({ "type": "tool_use", "id": call.id, "name": call.name, "input": input }));
                     }
                     if !blocks.is_empty() {
@@ -80,10 +81,17 @@ impl LlmProvider for AnthropicProvider {
                             && last
                                 .get("content")
                                 .and_then(|c| c.as_array())
-                                .map(|a| a.iter().all(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_result")))
+                                .map(|a| {
+                                    a.iter().all(|b| {
+                                        b.get("type").and_then(|t| t.as_str())
+                                            == Some("tool_result")
+                                    })
+                                })
                                 .unwrap_or(false)
                         {
-                            if let Some(arr) = last.get_mut("content").and_then(|c| c.as_array_mut()) {
+                            if let Some(arr) =
+                                last.get_mut("content").and_then(|c| c.as_array_mut())
+                            {
                                 arr.push(block);
                             }
                             continue;
@@ -138,7 +146,10 @@ impl LlmProvider for AnthropicProvider {
         if !status.is_success() {
             let text = resp.text().await.unwrap_or_default();
             let detail: String = text.chars().take(600).collect();
-            return Err(anyhow!("model request failed (HTTP {status}) at {}: {detail}", self.endpoint()));
+            return Err(anyhow!(
+                "model request failed (HTTP {status}) at {}: {detail}",
+                self.endpoint()
+            ));
         }
 
         // Track the current content block by index for tool_use accumulation.
@@ -162,19 +173,34 @@ impl LlmProvider for AnthropicProvider {
             while let Some(pos) = buffer.find('\n') {
                 let line: String = buffer.drain(..=pos).collect();
                 let line = line.trim();
-                let Some(data) = line.strip_prefix("data:") else { continue };
+                let Some(data) = line.strip_prefix("data:") else {
+                    continue;
+                };
                 let data = data.trim();
                 if data.is_empty() {
                     continue;
                 }
-                let Ok(value) = serde_json::from_str::<Value>(data) else { continue };
+                let Ok(value) = serde_json::from_str::<Value>(data) else {
+                    continue;
+                };
                 match value.get("type").and_then(|v| v.as_str()).unwrap_or("") {
                     "content_block_start" => {
                         let block = value.get("content_block").cloned().unwrap_or(json!({}));
                         if let Some("tool_use") = block.get("type").and_then(|v| v.as_str()) {
-                            let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let _ = tx.send(ProviderEvent::ToolCall { id: id.clone(), name: name.clone() });
+                            let id = block
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let name = block
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let _ = tx.send(ProviderEvent::ToolCall {
+                                id: id.clone(),
+                                name: name.clone(),
+                            });
                             current_tool = Some((id, name));
                         }
                     }
@@ -192,9 +218,10 @@ impl LlmProvider for AnthropicProvider {
                                 }
                             }
                             Some("input_json_delta") => {
-                                if let (Some(json_part), Some((id, _))) =
-                                    (delta.get("partial_json").and_then(|v| v.as_str()), current_tool.clone())
-                                {
+                                if let (Some(json_part), Some((id, _))) = (
+                                    delta.get("partial_json").and_then(|v| v.as_str()),
+                                    current_tool.clone(),
+                                ) {
                                     let _ = tx.send(ProviderEvent::ToolCallArgsDelta {
                                         id,
                                         args_delta: json_part.to_string(),
@@ -222,8 +249,14 @@ impl LlmProvider for AnthropicProvider {
                         }
                         if let Some(usage) = value.get("usage") {
                             let _ = tx.send(ProviderEvent::Usage {
-                                input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
-                                output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                                input_tokens: usage
+                                    .get("input_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0),
+                                output_tokens: usage
+                                    .get("output_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0),
                                 cached_input_tokens: usage
                                     .get("cache_read_input_tokens")
                                     .and_then(|v| v.as_u64())
@@ -234,7 +267,10 @@ impl LlmProvider for AnthropicProvider {
                     "message_start" => {
                         if let Some(usage) = value.get("message").and_then(|m| m.get("usage")) {
                             let _ = tx.send(ProviderEvent::Usage {
-                                input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                                input_tokens: usage
+                                    .get("input_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0),
                                 output_tokens: 0,
                                 cached_input_tokens: usage
                                     .get("cache_read_input_tokens")

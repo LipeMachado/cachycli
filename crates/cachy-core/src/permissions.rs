@@ -156,7 +156,10 @@ pub fn parse_rule(raw: &str) -> Option<Rule> {
     let (prefix, inner) = match raw.split_once('(') {
         Some((p, rest)) => {
             let inner = rest.strip_suffix(')').unwrap_or(rest);
-            (p.trim().to_ascii_lowercase(), Some(inner.trim().to_string()))
+            (
+                p.trim().to_ascii_lowercase(),
+                Some(inner.trim().to_string()),
+            )
         }
         None => (raw.to_ascii_lowercase(), None),
     };
@@ -174,10 +177,18 @@ pub fn parse_rule(raw: &str) -> Option<Rule> {
         "" => RuleKind::Any,
         _ => return None,
     };
-    let mut rule = Rule { kind, matcher: None, domain: None, raw: raw.to_string() };
+    let mut rule = Rule {
+        kind,
+        matcher: None,
+        domain: None,
+        raw: raw.to_string(),
+    };
     if let Some(inner) = inner {
         // Claude Code form `Bash(cmd:*)` == `Bash(cmd*)`.
-        let pattern = inner.strip_prefix("cmd:").map(str::to_string).unwrap_or_else(|| inner.clone());
+        let pattern = inner
+            .strip_prefix("cmd:")
+            .map(str::to_string)
+            .unwrap_or_else(|| inner.clone());
         if kind == RuleKind::WebFetch {
             if let Some(host) = pattern.strip_prefix("domain:") {
                 rule.domain = Some(host.trim().to_ascii_lowercase());
@@ -206,22 +217,40 @@ pub fn rule_kind_for_tool(tool: &str) -> Option<RuleKind> {
 
 /// Extract the rule-evaluation subject from tool arguments.
 pub fn subject_for(tool: &str, arguments: &serde_json::Value) -> String {
-    let s = |k: &str| arguments.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let s = |k: &str| {
+        arguments
+            .get(k)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    };
     match tool {
         "run_terminal_cmd" | "bash" | "Shell" => s("command"),
         "read_file" | "write" | "search_replace" | "list_dir" => {
             let p = s("file_path");
-            if p.is_empty() { s("path") } else { p }
+            if p.is_empty() {
+                s("path")
+            } else {
+                p
+            }
         }
         "grep" | "grep_search" | "Grep" => {
             let p = s("path");
-            if p.is_empty() { s("pattern") } else { p }
+            if p.is_empty() {
+                s("pattern")
+            } else {
+                p
+            }
         }
         "web_fetch" | "WebFetch" => s("url"),
         "web_search" => s("query"),
         "task" | "spawn_subagent" => {
             let t = s("description");
-            if t.is_empty() { s("prompt") } else { t }
+            if t.is_empty() {
+                s("prompt")
+            } else {
+                t
+            }
         }
         _ => arguments.to_string(),
     }
@@ -236,7 +265,11 @@ pub struct PermissionEngine {
 
 impl PermissionEngine {
     pub fn new(rules: RuleSet, mode: PermissionMode, always_approve: bool) -> Self {
-        Self { rules, mode, always_approve }
+        Self {
+            rules,
+            mode,
+            always_approve,
+        }
     }
 
     /// Decide whether a tool call may run, must ask, or is denied.
@@ -253,27 +286,33 @@ impl PermissionEngine {
         }
         match self.mode {
             PermissionMode::Plan => match tool {
-                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "Glob" | "Grep" | "todo_write"
-                | "web_search" | "web_fetch" | "task" | "search_tool" | "use_tool" | "get_task_output" | "wait_tasks" => {
+                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "Glob" | "Grep"
+                | "todo_write" | "web_search" | "web_fetch" | "task" | "search_tool"
+                | "use_tool" | "get_task_output" | "wait_tasks" => Decision::Allow,
+                _ => Decision::Deny,
+            },
+            PermissionMode::AcceptEdits => match tool {
+                "write" | "write_file" | "search_replace" | "StrReplace" | "edit" => {
+                    Decision::Allow
+                }
+                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "todo_write"
+                | "task" | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool" => {
+                    Decision::Allow
+                }
+                _ => Decision::Ask,
+            },
+            PermissionMode::DontAsk => match tool {
+                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "todo_write"
+                | "task" | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool" => {
                     Decision::Allow
                 }
                 _ => Decision::Deny,
             },
-            PermissionMode::AcceptEdits => match tool {
-                "write" | "write_file" | "search_replace" | "StrReplace" | "edit" => Decision::Allow,
-                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "todo_write" | "task"
-                | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool" => Decision::Allow,
-                _ => Decision::Ask,
-            },
-            PermissionMode::DontAsk => match tool {
-                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "todo_write" | "task"
-                | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool" => Decision::Allow,
-                _ => Decision::Deny,
-            },
             _ => match tool {
                 // Read-only operations are always safe.
-                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "Glob" | "Grep" | "todo_write"
-                | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool" | "task" => Decision::Allow,
+                "read_file" | "grep" | "grep_search" | "list_dir" | "glob" | "Glob" | "Grep"
+                | "todo_write" | "get_task_output" | "wait_tasks" | "search_tool" | "use_tool"
+                | "task" => Decision::Allow,
                 _ => Decision::Ask,
             },
         }
@@ -331,15 +370,24 @@ mod tests {
     #[test]
     fn deny_wins_over_allow() {
         let rs = RuleSet::parse(&["Bash(rm*)".into()], &["Bash(rm -rf*)".into()]);
-        assert_eq!(rs.evaluate(RuleKind::Bash, "rm -rf /"), Some(Decision::Deny));
-        assert_eq!(rs.evaluate(RuleKind::Bash, "rm tmp.txt"), Some(Decision::Allow));
+        assert_eq!(
+            rs.evaluate(RuleKind::Bash, "rm -rf /"),
+            Some(Decision::Deny)
+        );
+        assert_eq!(
+            rs.evaluate(RuleKind::Bash, "rm tmp.txt"),
+            Some(Decision::Allow)
+        );
         assert_eq!(rs.evaluate(RuleKind::Bash, "ls"), None);
     }
 
     #[test]
     fn web_fetch_domain_rule() {
         let rs = RuleSet::parse(&["WebFetch(domain:docs.rs)".into()], &[]);
-        assert_eq!(rs.evaluate(RuleKind::WebFetch, "https://docs.rs/tokio"), Some(Decision::Allow));
+        assert_eq!(
+            rs.evaluate(RuleKind::WebFetch, "https://docs.rs/tokio"),
+            Some(Decision::Allow)
+        );
         assert_eq!(rs.evaluate(RuleKind::WebFetch, "https://evil.com"), None);
     }
 

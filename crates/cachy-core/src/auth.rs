@@ -41,10 +41,16 @@ pub struct Credential {
 
 impl AuthState {
     pub fn is_authenticated(&self) -> bool {
-        self.api_key.as_ref().map(|k| !k.is_empty()).unwrap_or(false)
+        self.api_key
+            .as_ref()
+            .map(|k| !k.is_empty())
+            .unwrap_or(false)
             || self.providers.values().any(|c| {
                 c.key.as_ref().map(|k| !k.is_empty()).unwrap_or(false)
-                    || c.access_token.as_ref().map(|k| !k.is_empty()).unwrap_or(false)
+                    || c.access_token
+                        .as_ref()
+                        .map(|k| !k.is_empty())
+                        .unwrap_or(false)
             })
             || std::env::var("OPENAI_API_KEY").is_ok()
             || std::env::var("ANTHROPIC_API_KEY").is_ok()
@@ -92,7 +98,12 @@ fn write_private(path: &Path, contents: &str) -> Result<()> {
 
 /// Resolve credentials for a model base URL: explicit api key, env keys,
 /// auth.json providers, then external auth provider.
-pub fn credential_for(config: &Config, base_url: &str, explicit: Option<&str>, env_keys: &[String]) -> Option<String> {
+pub fn credential_for(
+    config: &Config,
+    base_url: &str,
+    explicit: Option<&str>,
+    env_keys: &[String],
+) -> Option<String> {
     if let Some(k) = explicit {
         if !k.is_empty() {
             return Some(k.to_string());
@@ -140,7 +151,9 @@ pub fn external_provider_command(config: &Config) -> Option<String> {
             return Some(cmd.clone());
         }
     }
-    std::env::var("CACHY_AUTH_PROVIDER_COMMAND").ok().filter(|s| !s.is_empty())
+    std::env::var("CACHY_AUTH_PROVIDER_COMMAND")
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 /// Run the external auth provider. Semantics:

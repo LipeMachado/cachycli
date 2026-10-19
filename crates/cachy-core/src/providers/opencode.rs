@@ -191,7 +191,11 @@ impl OpencodeBackend {
             // A stale server can answer 5xx for everything (an opencode that
             // migrated its database under it, for one) while a fresh one is
             // fine. Restart once and try again before giving up.
-            if status.is_server_error() && !self.restarted_for_errors.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            if status.is_server_error()
+                && !self
+                    .restarted_for_errors
+                    .swap(true, std::sync::atomic::Ordering::SeqCst)
+            {
                 let _ = self.tx.send(AgentEvent::Info(
                     "the opencode server answered an error — restarting it and retrying".into(),
                 ));
@@ -228,7 +232,10 @@ impl OpencodeBackend {
             .ok_or_else(|| anyhow!("opencode returned no session id: {session}"))?
             .to_string();
         if let Some(model) = session.get("model") {
-            let provider = model.get("providerID").and_then(|v| v.as_str()).unwrap_or("");
+            let provider = model
+                .get("providerID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let id = model.get("id").and_then(|v| v.as_str()).unwrap_or("");
             if !id.is_empty() {
                 *self.label.write().await = format!("{provider}/{id}");
@@ -336,7 +343,9 @@ impl OpencodeBackend {
             let _ = child.kill().await;
         }
         *self.base_url.write().await = None;
-        let used = self.port_bump.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let used = self
+            .port_bump
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         if used > 8 {
             self.port_bump.store(0, std::sync::atomic::Ordering::SeqCst);
         }
@@ -364,8 +373,9 @@ impl OpencodeBackend {
                     let first = self.prompt_server(text.clone()).await;
                     // A reused server can hold a credential that has since been
                     // renewed: restart it and try once more before giving up.
-                    let auth_failed =
-                        self.auth_failed.swap(false, std::sync::atomic::Ordering::SeqCst);
+                    let auth_failed = self
+                        .auth_failed
+                        .swap(false, std::sync::atomic::Ordering::SeqCst);
                     if auth_failed
                         && !self
                             .restarted_for_auth
@@ -478,7 +488,9 @@ impl OpencodeBackend {
                     if trimmed.is_empty() {
                         continue;
                     }
-                    let Ok(event) = serde_json::from_str::<Value>(trimmed) else { continue };
+                    let Ok(event) = serde_json::from_str::<Value>(trimmed) else {
+                        continue;
+                    };
                     let kind = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
                     if let Some(session_id) = event.get("sessionID").and_then(|v| v.as_str()) {
                         let mut guard = self.session_id.lock().await;
@@ -522,11 +534,18 @@ impl OpencodeBackend {
                                 .unwrap_or("tool")
                                 .to_string();
                             let state = part.get("state").cloned().unwrap_or(json!({}));
-                            let status = state.get("status").and_then(|v| v.as_str()).unwrap_or("running");
+                            let status = state
+                                .get("status")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("running");
                             let input = state
                                 .get("input")
                                 .cloned()
-                                .or_else(|| state.get("raw").and_then(|r| serde_json::from_str::<Value>(r.as_str().unwrap_or("")).ok()))
+                                .or_else(|| {
+                                    state.get("raw").and_then(|r| {
+                                        serde_json::from_str::<Value>(r.as_str().unwrap_or("")).ok()
+                                    })
+                                })
                                 .unwrap_or(json!({}));
                             if !tool_calls_seen.contains_key(&call_id) {
                                 tool_calls_seen.insert(call_id.clone(), tool.clone());
@@ -554,9 +573,14 @@ impl OpencodeBackend {
                         "step_finish" | "step-start" | "step_start" => {
                             let part = event.get("part").unwrap_or(&event);
                             if let Some(tokens) = part.get("tokens") {
-                                let input = tokens.get("input").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let output = tokens.get("output").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let reasoning = tokens.get("reasoning").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let input =
+                                    tokens.get("input").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let output =
+                                    tokens.get("output").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let reasoning = tokens
+                                    .get("reasoning")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
                                 // `input` already includes cached reads; the
                                 // context used is input + generated output.
                                 let used = input + output + reasoning;
@@ -580,10 +604,15 @@ impl OpencodeBackend {
                                 });
                             }
                             if let Some(model) = part.get("model") {
-                                let provider = model.get("providerID").and_then(|v| v.as_str()).unwrap_or("");
+                                let provider = model
+                                    .get("providerID")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
                                 let id = model.get("id").and_then(|v| v.as_str()).unwrap_or("");
                                 if !id.is_empty() {
-                                    *self.label.write().await = format!("{provider}/{id}").trim_start_matches('/').to_string();
+                                    *self.label.write().await = format!("{provider}/{id}")
+                                        .trim_start_matches('/')
+                                        .to_string();
                                 }
                             }
                         }
@@ -606,7 +635,9 @@ impl OpencodeBackend {
                 }
                 Ok(None) => break,
                 Err(e) => {
-                    let _ = self.tx.send(AgentEvent::Error(format!("opencode output error: {e}")));
+                    let _ = self
+                        .tx
+                        .send(AgentEvent::Error(format!("opencode output error: {e}")));
                     stop = StopReason::Error;
                     break;
                 }
@@ -634,11 +665,15 @@ impl OpencodeBackend {
         // Subscribe to the event stream first so no updates are lost. The CLI
         // uses the global `/event?directory=` stream and filters by session.
         let (stop_tx, mut stop_rx) = mpsc::unbounded_channel::<StopReason>();
-        let events_url = format!("{base}/event?directory={}", urlencode(&self.cwd.to_string_lossy()));
+        let events_url = format!(
+            "{base}/event?directory={}",
+            urlencode(&self.cwd.to_string_lossy())
+        );
         let this = self.clone();
         let listener_token = token.clone();
         let listener = tokio::spawn(async move {
-            this.listen_events(&events_url, listener_token, stop_tx).await
+            this.listen_events(&events_url, listener_token, stop_tx)
+                .await
         });
 
         // Send the message: POST /session/{id}/message with the model and parts.
@@ -674,7 +709,9 @@ impl OpencodeBackend {
                 return Ok(StopReason::Error);
             }
             Err(e) => {
-                let _ = self.tx.send(AgentEvent::Error(format!("opencode prompt failed: {e}")));
+                let _ = self
+                    .tx
+                    .send(AgentEvent::Error(format!("opencode prompt failed: {e}")));
                 let _ = self.cancel.lock().await.take();
                 listener.abort();
                 return Ok(StopReason::Error);
@@ -714,7 +751,9 @@ impl OpencodeBackend {
         {
             Ok(r) => r,
             Err(e) => {
-                let _ = self.tx.send(AgentEvent::Error(format!("opencode event stream failed: {e}")));
+                let _ = self.tx.send(AgentEvent::Error(format!(
+                    "opencode event stream failed: {e}"
+                )));
                 let _ = stop_tx.send(StopReason::Error);
                 return;
             }
@@ -740,12 +779,16 @@ impl OpencodeBackend {
             while let Some(pos) = buffer.find('\n') {
                 let line: String = buffer.drain(..=pos).collect();
                 let line = line.trim();
-                let Some(data) = line.strip_prefix("data:") else { continue };
+                let Some(data) = line.strip_prefix("data:") else {
+                    continue;
+                };
                 let data = data.trim();
                 if data.is_empty() || data == "[DONE]" {
                     continue;
                 }
-                let Ok(event) = serde_json::from_str::<Value>(data) else { continue };
+                let Ok(event) = serde_json::from_str::<Value>(data) else {
+                    continue;
+                };
                 let kind = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
                 // V1 payloads use `properties`, V2 uses `data`.
                 let payload = event
@@ -771,13 +814,15 @@ impl OpencodeBackend {
                     "session.next.text.delta" | "message.part.delta" => {
                         // v1 deltas carry `field` ("text" or "reasoning"); v2 text
                         // deltas have no field.
-                        let field = payload.get("field").and_then(|v| v.as_str()).unwrap_or("text");
+                        let field = payload
+                            .get("field")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("text");
                         if let Some(delta) = payload.get("delta").and_then(|v| v.as_str()) {
                             match field {
                                 "reasoning" => {
-                                    let _ = self
-                                        .tx
-                                        .send(AgentEvent::ReasoningDelta(delta.to_string()));
+                                    let _ =
+                                        self.tx.send(AgentEvent::ReasoningDelta(delta.to_string()));
                                 }
                                 "text" => {
                                     pending_text.push_str(delta);
@@ -801,13 +846,23 @@ impl OpencodeBackend {
                     "session.next.text.ended" => {
                         if let Some(text) = payload.get("text").and_then(|v| v.as_str()) {
                             if !text.is_empty() {
-                                let _ = self.tx.send(AgentEvent::MessageComplete { text: text.to_string() });
+                                let _ = self.tx.send(AgentEvent::MessageComplete {
+                                    text: text.to_string(),
+                                });
                             }
                         }
                     }
                     "session.next.tool.called" => {
-                        let id = payload.get("callID").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let tool = payload.get("tool").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
+                        let id = payload
+                            .get("callID")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let tool = payload
+                            .get("tool")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("tool")
+                            .to_string();
                         let input = payload.get("input").cloned().unwrap_or(json!({}));
                         let _ = self.tx.send(AgentEvent::ToolCall {
                             id,
@@ -818,7 +873,11 @@ impl OpencodeBackend {
                         });
                     }
                     "session.next.tool.success" => {
-                        let id = payload.get("callID").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let id = payload
+                            .get("callID")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         let summary = payload
                             .get("result")
                             .map(render_tool_result)
@@ -833,7 +892,11 @@ impl OpencodeBackend {
                         });
                     }
                     "session.next.tool.failed" => {
-                        let id = payload.get("callID").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let id = payload
+                            .get("callID")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         let summary = payload
                             .get("error")
                             .map(|e| e.to_string())
@@ -848,10 +911,15 @@ impl OpencodeBackend {
                     }
                     "session.next.step.started" => {
                         if let Some(model) = payload.get("model") {
-                            let provider = model.get("providerID").and_then(|v| v.as_str()).unwrap_or("");
+                            let provider = model
+                                .get("providerID")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
                             let id = model.get("id").and_then(|v| v.as_str()).unwrap_or("");
                             if !id.is_empty() {
-                                *self.label.write().await = format!("{provider}/{id}").trim_start_matches('/').to_string();
+                                *self.label.write().await = format!("{provider}/{id}")
+                                    .trim_start_matches('/')
+                                    .to_string();
                             }
                         }
                     }
@@ -906,9 +974,7 @@ impl OpencodeBackend {
                                         full
                                     };
                                     if !text.trim().is_empty() {
-                                        let _ = self
-                                            .tx
-                                            .send(AgentEvent::MessageComplete { text });
+                                        let _ = self.tx.send(AgentEvent::MessageComplete { text });
                                     }
                                 }
                             }
@@ -1012,11 +1078,7 @@ impl OpencodeBackend {
                             tool: kind,
                             title,
                             detail,
-                            options: vec![
-                                "Yes".into(),
-                                "Yes, always".into(),
-                                "No, reject".into(),
-                            ],
+                            options: vec!["Yes".into(), "Yes, always".into(), "No, reject".into()],
                         });
                     }
                     "session.status" => {
@@ -1099,10 +1161,7 @@ impl OpencodeBackend {
                             .and_then(|v| v.as_str())
                             .unwrap_or("permission")
                             .to_string();
-                        let patterns = payload
-                            .get("patterns")
-                            .cloned()
-                            .unwrap_or(json!([]));
+                        let patterns = payload.get("patterns").cloned().unwrap_or(json!([]));
                         let _ = self.tx.send(AgentEvent::PermissionRequest {
                             id,
                             tool: payload
@@ -1113,11 +1172,7 @@ impl OpencodeBackend {
                                 .to_string(),
                             title: permission,
                             detail: patterns.to_string(),
-                            options: vec![
-                                "Yes".into(),
-                                "Yes, always".into(),
-                                "No, reject".into(),
-                            ],
+                            options: vec!["Yes".into(), "Yes, always".into(), "No, reject".into()],
                         });
                     }
                     "session.error" => {
@@ -1265,7 +1320,16 @@ fn render_tool_result(result: &Value) -> String {
 }
 
 fn summarize_tool_input(input: &Value) -> String {
-    for key in ["command", "description", "filePath", "file_path", "path", "pattern", "url", "query"] {
+    for key in [
+        "command",
+        "description",
+        "filePath",
+        "file_path",
+        "path",
+        "pattern",
+        "url",
+        "query",
+    ] {
         if let Some(value) = input.get(key).and_then(|v| v.as_str()) {
             let value: String = value.chars().take(60).collect();
             if !value.trim().is_empty() {
@@ -1308,7 +1372,11 @@ impl AgentSession for OpencodeBackend {
         }
     }
     fn session_id(&self) -> String {
-        self.session_id.try_lock().ok().and_then(|g| g.clone()).unwrap_or_default()
+        self.session_id
+            .try_lock()
+            .ok()
+            .and_then(|g| g.clone())
+            .unwrap_or_default()
     }
     async fn backend_session(&self) -> Option<String> {
         self.session_id.lock().await.clone()
@@ -1344,7 +1412,9 @@ impl AgentSession for OpencodeBackend {
                 if info.get("role").and_then(|v| v.as_str()) != Some("user") {
                     return None;
                 }
-                info.get("id").and_then(|v| v.as_str()).map(|s| s.to_string())
+                info.get("id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
             })
             .collect();
         if users.is_empty() {
@@ -1383,7 +1453,11 @@ impl AgentSession for OpencodeBackend {
             return false;
         }
         let value: Value = resp.json().await.unwrap_or(json!({}));
-        let session = value.get("data").or_else(|| value.get("session")).cloned().unwrap_or(value);
+        let session = value
+            .get("data")
+            .or_else(|| value.get("session"))
+            .cloned()
+            .unwrap_or(value);
         let new_id = session
             .get("id")
             .or_else(|| session.get("sessionID"))
@@ -1422,7 +1496,10 @@ impl AgentSession for OpencodeBackend {
         true
     }
     fn model_label(&self) -> String {
-        self.label.try_read().map(|l| l.clone()).unwrap_or_else(|_| "opencode".into())
+        self.label
+            .try_read()
+            .map(|l| l.clone())
+            .unwrap_or_else(|_| "opencode".into())
     }
     fn context_usage(&self) -> (u64, u64) {
         self.context.try_read().map(|c| *c).unwrap_or((0, 0))

@@ -110,7 +110,9 @@ impl McpManager {
                     url,
                     headers,
                     session_id: Mutex::new(None),
-                    client: reqwest::Client::builder().user_agent(crate::user_agent()).build()?,
+                    client: reqwest::Client::builder()
+                        .user_agent(crate::user_agent())
+                        .build()?,
                 }),
                 next_id: AtomicI64::new(1),
             })
@@ -124,7 +126,9 @@ impl McpManager {
             for (k, v) in &cfg.env {
                 cmd.env(k, v);
             }
-            cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+            cmd.stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null());
             let mut child = cmd
                 .spawn()
                 .with_context(|| format!("starting MCP server {name} ({command})"))?;
@@ -163,13 +167,20 @@ impl McpManager {
             for tool in list {
                 tools.push(McpToolInfo {
                     server: name.to_string(),
-                    name: tool.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    name: tool
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     description: tool
                         .get("description")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string(),
-                    input_schema: tool.get("inputSchema").cloned().unwrap_or_else(|| json!({ "type": "object" })),
+                    input_schema: tool
+                        .get("inputSchema")
+                        .cloned()
+                        .unwrap_or_else(|| json!({ "type": "object" })),
                 });
             }
         }
@@ -218,12 +229,20 @@ impl McpManager {
             .unwrap_or(cfg.tool_timeout_sec.max(1));
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(timeout),
-            request(&conn, "tools/call", json!({ "name": tool, "arguments": arguments })),
+            request(
+                &conn,
+                "tools/call",
+                json!({ "name": tool, "arguments": arguments }),
+            ),
         )
         .await
         .map_err(|_| anyhow!("tool call timed out after {timeout}s"))??;
 
-        if result.get("isError").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             return Ok(format!("[error] {}", render_content(&result)));
         }
         Ok(render_content(&result))
@@ -254,7 +273,11 @@ fn render_content(result: &Value) -> String {
                     }
                 }
                 "resource" => {
-                    if let Some(text) = item.get("resource").and_then(|r| r.get("text")).and_then(|v| v.as_str()) {
+                    if let Some(text) = item
+                        .get("resource")
+                        .and_then(|r| r.get("text"))
+                        .and_then(|v| v.as_str())
+                    {
                         out.push_str(text);
                         out.push('\n');
                     } else if let Some(uri) = item.get("resource").and_then(|r| r.get("uri")) {
@@ -317,14 +340,20 @@ async fn exchange(conn: &Connection, message: Value, want_id: Option<i64>) -> Re
         if trimmed.is_empty() {
             continue;
         }
-        let Ok(value) = serde_json::from_str::<Value>(trimmed) else { continue };
+        let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+            continue;
+        };
         if value.get("id").and_then(|v| v.as_i64()) == Some(id) {
             return Ok(value);
         }
     }
 }
 
-async fn http_exchange(http: &HttpTransport, message: Value, want_id: Option<i64>) -> Result<Value> {
+async fn http_exchange(
+    http: &HttpTransport,
+    message: Value,
+    want_id: Option<i64>,
+) -> Result<Value> {
     let mut req = http.client.post(&http.url).json(&message);
     for (k, v) in &http.headers {
         req = req.header(k, v);
@@ -334,7 +363,11 @@ async fn http_exchange(http: &HttpTransport, message: Value, want_id: Option<i64
     }
     req = req.header("accept", "application/json, text/event-stream");
     let resp = req.send().await?;
-    if let Some(session) = resp.headers().get("mcp-session-id").and_then(|v| v.to_str().ok()) {
+    if let Some(session) = resp
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|v| v.to_str().ok())
+    {
         *http.session_id.lock().await = Some(session.to_string());
     }
     if want_id.is_none() {

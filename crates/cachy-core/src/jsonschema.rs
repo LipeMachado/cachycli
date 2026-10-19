@@ -138,10 +138,14 @@ mod tests {
         assert!(check(&schema, &missing).unwrap_err().contains("count"));
 
         let wrong_type = serde_json::json!({ "name": 1, "count": 3 });
-        assert!(check(&schema, &wrong_type).unwrap_err().contains("expected string"));
+        assert!(check(&schema, &wrong_type)
+            .unwrap_err()
+            .contains("expected string"));
 
         let extra = serde_json::json!({ "name": "x", "count": 1, "nope": true });
-        assert!(check(&schema, &extra).unwrap_err().contains("unexpected key"));
+        assert!(check(&schema, &extra)
+            .unwrap_err()
+            .contains("unexpected key"));
 
         let bad_item = serde_json::json!({ "name": "x", "count": 1, "tags": ["ok", 2] });
         assert!(check(&schema, &bad_item).unwrap_err().contains("tags[1]"));

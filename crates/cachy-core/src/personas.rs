@@ -58,7 +58,9 @@ pub fn discover(cwd: &Path, _config: &Config) -> Vec<Persona> {
 
     let mut map: BTreeMap<String, Persona> = BTreeMap::new();
     for (dir, source) in sources {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             let is_markdown = path
@@ -98,7 +100,9 @@ fn parse_persona(path: &Path, source: &str) -> Option<Persona> {
             let front = &rest[..end];
             body = rest[end + 4..].trim_start_matches(['\r', '\n']).to_string();
             for line in front.lines() {
-                let Some((key, value)) = line.split_once(':') else { continue };
+                let Some((key, value)) = line.split_once(':') else {
+                    continue;
+                };
                 let value = value.trim().trim_matches('"').to_string();
                 match key.trim().to_lowercase().as_str() {
                     "name" if !value.is_empty() => name = value,
@@ -188,11 +192,24 @@ mod hostile_tests {
         let cases: Vec<(&str, String)> = vec![
             ("unclosed.md", "---\nname: sem fim\n".into()),
             ("dashes.md", "---".into()),
-            ("bom.md", "\u{feff}---\nname: com bom\ndescription: ok\n---\ncorpo".into()),
-            ("crlf.md", "---\r\nname: crlf\r\ndescription: ok\r\n---\r\ncorpo\r\n".into()),
+            (
+                "bom.md",
+                "\u{feff}---\nname: com bom\ndescription: ok\n---\ncorpo".into(),
+            ),
+            (
+                "crlf.md",
+                "---\r\nname: crlf\r\ndescription: ok\r\n---\r\ncorpo\r\n".into(),
+            ),
             ("empty.md", String::new()),
-            ("blank-front.md", "---\nname:\ndescription:   \n---\n".into()),
-            ("tags.md", "---\nname: <script>alert(1)</script>\ndescription: 日本語 の 説明\n---\nbody".into()),
+            (
+                "blank-front.md",
+                "---\nname:\ndescription:   \n---\n".into(),
+            ),
+            (
+                "tags.md",
+                "---\nname: <script>alert(1)</script>\ndescription: 日本語 の 説明\n---\nbody"
+                    .into(),
+            ),
             ("huge.md", "x".repeat(200_000)),
             ("many-dashes.md", "---\n---\n---\nname: depois".into()),
         ];

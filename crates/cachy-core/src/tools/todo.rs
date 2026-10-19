@@ -50,7 +50,11 @@ impl Tool for TodoWriteTool {
         };
         let mut todos = Vec::new();
         for item in items {
-            let content = item.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let content = item
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             if content.is_empty() {
                 continue;
             }

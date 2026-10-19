@@ -62,7 +62,9 @@ pub fn discover(cwd: &Path) -> Vec<Workflow> {
 
     let mut map: BTreeMap<String, Workflow> = BTreeMap::new();
     for (dir, source) in sources {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if !path.is_file() {
@@ -143,7 +145,9 @@ fn parse_workflow(path: &Path, source: &str) -> Option<Workflow> {
             let front = &rest[..end];
             body = rest[end + 4..].trim_start_matches(['\r', '\n']);
             for line in front.lines() {
-                let Some((key, value)) = line.split_once(':') else { continue };
+                let Some((key, value)) = line.split_once(':') else {
+                    continue;
+                };
                 let value = value.trim().trim_matches('"').to_string();
                 match key.trim().to_lowercase().as_str() {
                     "name" if !value.is_empty() => name = value,
@@ -250,10 +254,19 @@ mod hostile_tests {
         let markdown: Vec<(&str, String)> = vec![
             ("unclosed.md", "---\nname: sem fim\n".into()),
             ("empty.md", String::new()),
-            ("bom.md", "\u{feff}---\nname: bom\n---\n## Step: um\nfaça algo".into()),
-            ("crlf.md", "---\r\nname: crlf\r\n---\r\n## Step: um\r\nfaça".into()),
+            (
+                "bom.md",
+                "\u{feff}---\nname: bom\n---\n## Step: um\nfaça algo".into(),
+            ),
+            (
+                "crlf.md",
+                "---\r\nname: crlf\r\n---\r\n## Step: um\r\nfaça".into(),
+            ),
             ("no-steps.md", "---\nname: sem passos\n---\nsó texto".into()),
-            ("huge.md", format!("---\nname: grande\n---\n{}", "passo ".repeat(20_000))),
+            (
+                "huge.md",
+                format!("---\nname: grande\n---\n{}", "passo ".repeat(20_000)),
+            ),
         ];
         for (name, content) in markdown {
             let path = dir.join(name);
@@ -267,7 +280,10 @@ mod hostile_tests {
             ("steps-not-array.json", r#"{"name":"x","steps":"nao"}"#),
             ("steps-empty.json", r#"{"name":"x","steps":[{}]}"#),
             ("steps-null.json", r#"{"name":null,"steps":[null]}"#),
-            ("huge.json", r#"{"name":"x","steps":[{"prompt":"p","title":"t"}]}"#),
+            (
+                "huge.json",
+                r#"{"name":"x","steps":[{"prompt":"p","title":"t"}]}"#,
+            ),
         ];
         for (name, content) in json {
             let path = dir.join(name);

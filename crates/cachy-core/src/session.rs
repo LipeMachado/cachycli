@@ -105,16 +105,57 @@ pub struct SessionSignals {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SessionUpdate {
-    UserMessage { text: String, ts: String },
-    AgentMessage { text: String, ts: String },
-    AgentThought { text: String, ts: String },
-    ToolCall { id: String, name: String, title: String, kind: String, arguments: serde_json::Value, ts: String },
-    ToolCallUpdate { id: String, status: String, content: Option<String>, ts: String },
-    Plan { entries: Vec<PlanEntry>, ts: String },
-    Usage { input_tokens: u64, output_tokens: u64, context_used: u64, context_size: u64, ts: String },
-    Notice { severity: String, title: String, description: Option<String>, ts: String },
-    TurnEnd { stop_reason: String, ts: String },
-    ModeChange { mode: String, ts: String },
+    UserMessage {
+        text: String,
+        ts: String,
+    },
+    AgentMessage {
+        text: String,
+        ts: String,
+    },
+    AgentThought {
+        text: String,
+        ts: String,
+    },
+    ToolCall {
+        id: String,
+        name: String,
+        title: String,
+        kind: String,
+        arguments: serde_json::Value,
+        ts: String,
+    },
+    ToolCallUpdate {
+        id: String,
+        status: String,
+        content: Option<String>,
+        ts: String,
+    },
+    Plan {
+        entries: Vec<PlanEntry>,
+        ts: String,
+    },
+    Usage {
+        input_tokens: u64,
+        output_tokens: u64,
+        context_used: u64,
+        context_size: u64,
+        ts: String,
+    },
+    Notice {
+        severity: String,
+        title: String,
+        description: Option<String>,
+        ts: String,
+    },
+    TurnEnd {
+        stop_reason: String,
+        ts: String,
+    },
+    ModeChange {
+        mode: String,
+        ts: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,7 +249,10 @@ impl SessionStore {
     pub fn append_chat(&mut self, message: &ChatMessage) -> Result<()> {
         append_jsonl(&self.chat_history_path(), message)?;
         self.summary.num_chat_messages += 1;
-        if matches!(message.role, crate::message::Role::User | crate::message::Role::Assistant) {
+        if matches!(
+            message.role,
+            crate::message::Role::User | crate::message::Role::Assistant
+        ) {
             self.summary.num_messages += 1;
         }
         self.save_summary()
@@ -226,7 +270,12 @@ impl SessionStore {
         self.summary.num_chat_messages = messages.len() as u64;
         self.summary.num_messages = messages
             .iter()
-            .filter(|m| matches!(m.role, crate::message::Role::User | crate::message::Role::Assistant))
+            .filter(|m| {
+                matches!(
+                    m.role,
+                    crate::message::Role::User | crate::message::Role::Assistant
+                )
+            })
             .count() as u64;
         self.save_summary()
     }
@@ -260,7 +309,10 @@ impl SessionStore {
     }
 
     pub fn write_signals(&self, signals: &SessionSignals) -> Result<()> {
-        std::fs::write(self.dir.join("signals.json"), serde_json::to_string_pretty(signals)?)?;
+        std::fs::write(
+            self.dir.join("signals.json"),
+            serde_json::to_string_pretty(signals)?,
+        )?;
         Ok(())
     }
 
@@ -287,7 +339,10 @@ fn append_jsonl<T: Serialize>(path: &Path, value: &T) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let line = serde_json::to_string(value)?;
-    let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
     writeln!(file, "{line}")?;
     Ok(())
 }
@@ -335,7 +390,9 @@ pub fn list_sessions(cwd: Option<&Path>) -> Result<Vec<SessionSummary>> {
             .unwrap_or_default(),
     };
     for root in roots {
-        let Ok(entries) = std::fs::read_dir(&root) else { continue };
+        let Ok(entries) = std::fs::read_dir(&root) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let summary = entry.path().join("summary.json");
             if summary.is_file() {
@@ -401,7 +458,11 @@ pub fn find_by_id_or_title(cwd: &Path, needle: &str) -> Result<Option<SessionSum
         if renamed.len() == 1 {
             return Ok(Some((*renamed[0]).clone()));
         }
-        let ids = matches.iter().map(|s| s.id.clone()).collect::<Vec<_>>().join(", ");
+        let ids = matches
+            .iter()
+            .map(|s| s.id.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
         anyhow::bail!("multiple sessions match \"{needle}\": {ids}");
     }
     // Substring per-word match: every needle word appears as a title word.
@@ -416,7 +477,11 @@ pub fn find_by_id_or_title(cwd: &Path, needle: &str) -> Result<Option<SessionSum
         0 => Ok(None),
         1 => Ok(Some(word_matches.remove(0).clone())),
         _ => {
-            let ids = word_matches.iter().map(|s| s.id.clone()).collect::<Vec<_>>().join(", ");
+            let ids = word_matches
+                .iter()
+                .map(|s| s.id.clone())
+                .collect::<Vec<_>>()
+                .join(", ");
             anyhow::bail!("multiple sessions match \"{needle}\": {ids}")
         }
     }

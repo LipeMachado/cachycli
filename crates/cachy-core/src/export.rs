@@ -8,7 +8,14 @@ use crate::session::{SessionStore, SessionUpdate};
 pub fn session_markdown(store: &SessionStore) -> Result<String> {
     let mut out = String::new();
     let s = &store.summary;
-    out.push_str(&format!("# {}\n\n", if s.title.is_empty() { "Session" } else { &s.title }));
+    out.push_str(&format!(
+        "# {}\n\n",
+        if s.title.is_empty() {
+            "Session"
+        } else {
+            &s.title
+        }
+    ));
     out.push_str(&format!("- Session ID: `{}`\n", s.id));
     out.push_str(&format!("- Working directory: `{}`\n", s.cwd));
     out.push_str(&format!("- Model: `{}`\n", s.current_model_id));
@@ -25,13 +32,25 @@ pub fn session_markdown(store: &SessionStore) -> Result<String> {
                 out.push_str(&format!("## Assistant\n\n{text}\n\n"));
             }
             SessionUpdate::AgentThought { text, .. } => {
-                out.push_str(&format!("<details><summary>Thinking</summary>\n\n{text}\n\n</details>\n\n"));
+                out.push_str(&format!(
+                    "<details><summary>Thinking</summary>\n\n{text}\n\n</details>\n\n"
+                ));
             }
-            SessionUpdate::ToolCall { name, title, arguments, .. } => {
-                out.push_str(&format!("### Tool call: {name}\n\n```json\n{}\n```\n\n", serde_json::to_string_pretty(&arguments).unwrap_or_default()));
+            SessionUpdate::ToolCall {
+                name,
+                title,
+                arguments,
+                ..
+            } => {
+                out.push_str(&format!(
+                    "### Tool call: {name}\n\n```json\n{}\n```\n\n",
+                    serde_json::to_string_pretty(&arguments).unwrap_or_default()
+                ));
                 let _ = title;
             }
-            SessionUpdate::ToolCallUpdate { status, content, .. } => {
+            SessionUpdate::ToolCallUpdate {
+                status, content, ..
+            } => {
                 out.push_str(&format!("*Status: {status}*\n\n"));
                 if let Some(content) = content {
                     out.push_str(&format!("```\n{content}\n```\n\n"));
@@ -44,14 +63,25 @@ pub fn session_markdown(store: &SessionStore) -> Result<String> {
                 }
                 out.push('\n');
             }
-            SessionUpdate::Usage { input_tokens, output_tokens, .. } => {
-                out.push_str(&format!("*Usage: {input_tokens} in / {output_tokens} out*\n\n"));
+            SessionUpdate::Usage {
+                input_tokens,
+                output_tokens,
+                ..
+            } => {
+                out.push_str(&format!(
+                    "*Usage: {input_tokens} in / {output_tokens} out*\n\n"
+                ));
             }
             SessionUpdate::TurnEnd { stop_reason, .. } => {
                 out.push_str(&format!("---\n\n*Turn ended: {stop_reason}*\n\n"));
             }
-            SessionUpdate::Notice { title, description, .. } => {
-                out.push_str(&format!("> **{title}**{}\n\n", description.map(|d| format!(" — {d}")).unwrap_or_default()));
+            SessionUpdate::Notice {
+                title, description, ..
+            } => {
+                out.push_str(&format!(
+                    "> **{title}**{}\n\n",
+                    description.map(|d| format!(" — {d}")).unwrap_or_default()
+                ));
             }
             _ => {}
         }

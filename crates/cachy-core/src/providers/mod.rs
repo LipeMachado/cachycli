@@ -1,9 +1,9 @@
 //! LLM providers: OpenAI-compatible chat completions and Anthropic messages,
 //! plus the opencode / ACP agent backends.
 
+pub mod acp_client;
 pub mod anthropic;
 pub mod claude_code;
-pub mod acp_client;
 pub mod openai;
 pub mod opencode;
 
@@ -32,8 +32,12 @@ pub trait LlmProvider: Send + Sync {
 /// Build the provider for a model.
 pub fn for_model(model: &Model) -> Box<dyn LlmProvider> {
     match model.api_backend {
-        crate::models::ApiBackend::Anthropic => Box::new(anthropic::AnthropicProvider::new(model.clone())),
-        crate::models::ApiBackend::Responses => Box::new(openai::OpenAiProvider::new(model.clone())),
+        crate::models::ApiBackend::Anthropic => {
+            Box::new(anthropic::AnthropicProvider::new(model.clone()))
+        }
+        crate::models::ApiBackend::Responses => {
+            Box::new(openai::OpenAiProvider::new(model.clone()))
+        }
         crate::models::ApiBackend::Chat => Box::new(openai::OpenAiProvider::new(model.clone())),
     }
 }
@@ -49,14 +53,20 @@ pub fn http_client() -> reqwest::Client {
 
 /// Join base URL and path without doubling slashes.
 pub fn join_url(base: &str, path: &str) -> String {
-    format!("{}/{}", base.trim_end_matches('/'), path.trim_start_matches('/'))
+    format!(
+        "{}/{}",
+        base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
 }
 
 /// Best-effort context window estimate from a message list.
 pub fn estimate_tokens(messages: &[ChatMessage]) -> u64 {
     let chars: usize = messages
         .iter()
-        .map(|m| m.content.len() + m.reasoning.as_deref().map(str::len).unwrap_or(0) + m.arguments_len())
+        .map(|m| {
+            m.content.len() + m.reasoning.as_deref().map(str::len).unwrap_or(0) + m.arguments_len()
+        })
         .sum();
     (chars as u64 / 4).max(1)
 }
@@ -67,6 +77,9 @@ trait ArgumentsLen {
 
 impl ArgumentsLen for ChatMessage {
     fn arguments_len(&self) -> usize {
-        self.tool_calls.iter().map(|c| c.name.len() + c.arguments.len()).sum()
+        self.tool_calls
+            .iter()
+            .map(|c| c.name.len() + c.arguments.len())
+            .sum()
     }
 }

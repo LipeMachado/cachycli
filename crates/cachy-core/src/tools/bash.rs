@@ -48,7 +48,12 @@ impl Tool for BashTool {
     }
 
     async fn run(&self, args: Value, ctx: &ToolContext) -> ToolResult {
-        let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+        let command = args
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
         if command.is_empty() {
             return ToolResult::err("missing required argument: command");
         }
@@ -57,7 +62,10 @@ impl Tool for BashTool {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let background = args.get("is_background").and_then(|v| v.as_bool()).unwrap_or(false);
+        let background = args
+            .get("is_background")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let timeout = args
             .get("timeout_secs")
             .and_then(|v| v.as_f64())
@@ -79,10 +87,13 @@ impl Tool for BashTool {
             Err(e) => return ToolResult::err(format!("failed to spawn command: {e}")),
         };
 
-        let result = tokio::time::timeout(std::time::Duration::from_secs_f64(timeout.max(1.0)), async {
-            let output = child.wait_with_output().await;
-            output
-        })
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs_f64(timeout.max(1.0)),
+            async {
+                let output = child.wait_with_output().await;
+                output
+            },
+        )
         .await;
 
         match result {
@@ -118,12 +129,21 @@ impl Tool for BashTool {
 }
 
 impl BashTool {
-    async fn spawn_background(&self, command: String, description: String, ctx: &ToolContext) -> ToolResult {
+    async fn spawn_background(
+        &self,
+        command: String,
+        description: String,
+        ctx: &ToolContext,
+    ) -> ToolResult {
         let id = ctx.tasks.next_id("cmd");
         let task = Arc::new(BackgroundTask {
             id: id.clone(),
             kind: TaskKind::Command,
-            description: if description.is_empty() { command.clone() } else { description },
+            description: if description.is_empty() {
+                command.clone()
+            } else {
+                description
+            },
             started_at: std::time::Instant::now(),
             finished_at: std::sync::Mutex::new(None),
             output: Arc::new(RwLock::new(String::new())),
@@ -235,7 +255,14 @@ pub fn truncate_text(text: &str, limit: usize) -> (String, bool) {
     while !text.is_char_boundary(end) && end > 0 {
         end -= 1;
     }
-    (format!("{}\n[... truncated {} bytes ...]", &text[..end], text.len() - end), true)
+    (
+        format!(
+            "{}\n[... truncated {} bytes ...]",
+            &text[..end],
+            text.len() - end
+        ),
+        true,
+    )
 }
 
 /// Helper used by other tools that reuse the registry shape.
@@ -268,44 +295,69 @@ mod tests {
         let tool = BashTool;
 
         // No command at all.
-        let result = tool.run(serde_json::json!({}), &ctx)
-                .await;
+        let result = tool.run(serde_json::json!({}), &ctx).await;
         assert!(result.is_error, "an empty command is an error");
 
         // A command that does not exist: the output comes back with the exit
         // code, and the interface counts it as a failure.
         let result = tool
-            .run(serde_json::json!({ "command": "cachy-nao-existe-xyz" }), &ctx)
+            .run(
+                serde_json::json!({ "command": "cachy-nao-existe-xyz" }),
+                &ctx,
+            )
             .await;
-        assert!(result.content.contains("127"), "the exit code is reported: {}", result.content);
+        assert!(
+            result.content.contains("127"),
+            "the exit code is reported: {}",
+            result.content
+        );
         assert_eq!(crate::tools::status_of(&result), "failed");
 
         // A command that fails.
-        let result = tool.run(serde_json::json!({ "command": "exit 3" }), &ctx)
-                .await;
-        assert_eq!(crate::tools::status_of(&result), "failed", "exit 3 is a failure");
+        let result = tool
+            .run(serde_json::json!({ "command": "exit 3" }), &ctx)
+            .await;
+        assert_eq!(
+            crate::tools::status_of(&result),
+            "failed",
+            "exit 3 is a failure"
+        );
 
         // A command that succeeds is not.
-        let result = tool.run(serde_json::json!({ "command": "true" }), &ctx)
-                .await;
+        let result = tool
+            .run(serde_json::json!({ "command": "true" }), &ctx)
+            .await;
         assert_eq!(crate::tools::status_of(&result), "completed");
 
         // Output that is not valid UTF-8.
         let result = tool
-            .run(serde_json::json!({ "command": "printf '\\xff\\xfe\\x00fim'" }), &ctx)
+            .run(
+                serde_json::json!({ "command": "printf '\\xff\\xfe\\x00fim'" }),
+                &ctx,
+            )
             .await;
-        assert!(!result.is_error, "lossy decoding, not a crash: {}", result.content);
+        assert!(
+            !result.is_error,
+            "lossy decoding, not a crash: {}",
+            result.content
+        );
 
         // Output far past the limit gets truncated, not swallowed.
         let result = tool
-            .run(serde_json::json!({ "command": "yes cachy | head -c 400000" }), &ctx)
+            .run(
+                serde_json::json!({ "command": "yes cachy | head -c 400000" }),
+                &ctx,
+            )
             .await;
         assert!(result.content.len() < 400_000, "output should be capped");
         assert!(result.content.contains("truncated"), "and say so");
 
         // A timeout ends the command instead of hanging the turn.
         let result = tool
-            .run(serde_json::json!({ "command": "sleep 5", "timeout_secs": 1 }), &ctx)
+            .run(
+                serde_json::json!({ "command": "sleep 5", "timeout_secs": 1 }),
+                &ctx,
+            )
             .await;
         assert!(result.is_error, "a timeout is reported: {}", result.content);
     }

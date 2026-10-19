@@ -30,13 +30,25 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn ok(content: impl Into<String>) -> Self {
-        Self { content: content.into(), is_error: false, meta: None }
+        Self {
+            content: content.into(),
+            is_error: false,
+            meta: None,
+        }
     }
     pub fn with_meta(content: impl Into<String>, meta: Value) -> Self {
-        Self { content: content.into(), is_error: false, meta: Some(meta) }
+        Self {
+            content: content.into(),
+            is_error: false,
+            meta: Some(meta),
+        }
     }
     pub fn err(content: impl Into<String>) -> Self {
-        Self { content: content.into(), is_error: true, meta: None }
+        Self {
+            content: content.into(),
+            is_error: true,
+            meta: None,
+        }
     }
 }
 
@@ -122,7 +134,11 @@ pub trait Tool: Send + Sync {
     fn kind(&self) -> ToolKind;
     /// One-line title for the TUI, e.g. `Edit src/main.rs`.
     fn title(&self, args: &Value) -> String {
-        format!("{} {}", self.display_name(), short_target(args, &["file_path", "path", "command", "query", "url"]))
+        format!(
+            "{} {}",
+            self.display_name(),
+            short_target(args, &["file_path", "path", "command", "query", "url"])
+        )
     }
     async fn run(&self, args: Value, ctx: &ToolContext) -> ToolResult;
 }
@@ -259,9 +275,12 @@ impl ToolRegistry {
                 continue;
             }
             let before = self.tools.len();
-            self.tools.retain(|t| t.name() != normalized && t.display_name() != normalized);
+            self.tools
+                .retain(|t| t.name() != normalized && t.display_name() != normalized);
             if self.tools.len() == before {
-                warnings.push(format!("--disallowed-tools entry \"{entry}\" does not name a tool"));
+                warnings.push(format!(
+                    "--disallowed-tools entry \"{entry}\" does not name a tool"
+                ));
             }
         }
         warnings
@@ -373,7 +392,10 @@ pub struct TaskRegistry {
 
 impl TaskRegistry {
     pub fn next_id(&self, prefix: &str) -> String {
-        let n = self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let n = self
+            .counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
         format!("{prefix}-{n}")
     }
 
@@ -409,7 +431,6 @@ impl TaskRegistry {
     }
 }
 
-
 #[cfg(test)]
 mod registry_tests {
 
@@ -431,7 +452,10 @@ mod registry_tests {
         assert!(task.elapsed_secs() >= 0.1, "a running task counts up");
         task.finish(TaskStatus::Completed).await;
         let frozen = task.elapsed_secs();
-        assert!(frozen >= 0.1, "the finished task keeps its duration: {frozen}");
+        assert!(
+            frozen >= 0.1,
+            "the finished task keeps its duration: {frozen}"
+        );
         tokio::time::sleep(std::time::Duration::from_millis(80)).await;
         assert!(
             (task.elapsed_secs() - frozen).abs() < 0.02,
@@ -461,7 +485,11 @@ mod registry_tests {
         assert!(cancel.is_cancelled(), "the panel's kill cancels the token");
         // The task itself notices the cancellation and marks itself done.
         *fetched.status.write().await = TaskStatus::Killed;
-        assert_eq!(registry.running().await.len(), 0, "a killed task is not running");
+        assert_eq!(
+            registry.running().await.len(),
+            0,
+            "a killed task is not running"
+        );
     }
 
     use super::*;
@@ -470,9 +498,18 @@ mod registry_tests {
     fn workflow_tool_is_offered_to_the_model() {
         let config = crate::config::Config::default();
         let registry = ToolRegistry::default_registry(&config);
-        assert!(registry.get("run_workflow").is_some(), "run_workflow must be registered");
-        assert!(registry.get("plan_workflow").is_some(), "plan_workflow must be registered");
-        assert!(registry.get("set_goal").is_some(), "set_goal must be registered");
+        assert!(
+            registry.get("run_workflow").is_some(),
+            "run_workflow must be registered"
+        );
+        assert!(
+            registry.get("plan_workflow").is_some(),
+            "plan_workflow must be registered"
+        );
+        assert!(
+            registry.get("set_goal").is_some(),
+            "set_goal must be registered"
+        );
         // And it disappears with subagents disabled, like the other task tools.
         let mut off = crate::config::Config::default();
         off.subagents.enabled = false;

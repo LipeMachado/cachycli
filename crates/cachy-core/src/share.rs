@@ -269,7 +269,9 @@ mod tests {
 
         // Nothing climbs out of the directory, and nothing else gets in.
         assert!(store.get("../../etc/passwd").is_err());
-        assert!(store.put(r#"{"kind":"something.else","version":1}"#).is_err());
+        assert!(store
+            .put(r#"{"kind":"something.else","version":1}"#)
+            .is_err());
 
         store.remove(&entry.id).unwrap();
         assert!(store.list().is_empty());

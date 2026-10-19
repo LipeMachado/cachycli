@@ -108,7 +108,9 @@ pub fn discover(cwd: &Path, config: &Config) -> Vec<Skill> {
 
     let mut map: BTreeMap<String, Skill> = BTreeMap::new();
     for (dir, source) in sources {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let skill_md = entry.path().join("SKILL.md");
             if skill_md.is_file() {
@@ -188,7 +190,10 @@ mod hostile_tests {
         std::fs::create_dir_all(dir.join("commit")).unwrap();
 
         let cases: Vec<(&str, String)> = vec![
-            ("SKILL.md", "---\nname: commit\ndescription: ok\n---\ncorpo".into()),
+            (
+                "SKILL.md",
+                "---\nname: commit\ndescription: ok\n---\ncorpo".into(),
+            ),
             ("SKILL.md", "---\nname:\n---\ncorpo".into()),
             ("SKILL.md", "---\nsem fim\n".into()),
             ("SKILL.md", "\u{feff}---\nname: com bom\n---\ncorpo".into()),

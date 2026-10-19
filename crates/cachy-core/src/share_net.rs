@@ -30,7 +30,9 @@ async fn call(url: &str, request: serde_json::Value) -> Result<serde_json::Value
         let message = message
             .with_context(|| format!("{url} closed the connection"))?
             .with_context(|| format!("reading from {url}"))?;
-        let Message::Text(text) = message else { continue };
+        let Message::Text(text) = message else {
+            continue;
+        };
         let reply: serde_json::Value = serde_json::from_str(&text)
             .with_context(|| format!("{url} answered with something else: {text}"))?;
         if reply.get("type").and_then(|v| v.as_str()) == Some("error") {
