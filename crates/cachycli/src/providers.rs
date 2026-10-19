@@ -71,24 +71,50 @@ pub fn cli_agent(
         BackendKind::Gemini => config.agent.gemini.model.clone(),
         _ => None,
     };
+    // The CLIs keep their own credentials; these are where they put them, and
+    // an environment key counts too. Installed is not the same as signed in.
+    let signed_in = if !installed {
+        false
+    } else {
+        let home = dirs::home_dir().unwrap_or_default();
+        let files: Vec<std::path::PathBuf> = match id {
+            BackendKind::Codex => vec![home.join(".codex").join("auth.json")],
+            BackendKind::Gemini => vec![
+                home.join(".gemini").join("oauth_creds.json"),
+                home.join(".gemini").join("settings.json"),
+            ],
+            _ => Vec::new(),
+        };
+        let env_keys: &[&str] = match id {
+            BackendKind::Codex => &["OPENAI_API_KEY"],
+            BackendKind::Gemini => &["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+            _ => &[],
+        };
+        files.iter().any(|path| {
+            std::fs::read_to_string(path)
+                .map(|raw| raw.trim().len() > 2)
+                .unwrap_or(false)
+        }) || env_keys
+            .iter()
+            .any(|key| std::env::var(key).is_ok_and(|value| !value.trim().is_empty()))
+    };
     ProviderInfo {
         id,
         label,
         summary: "the vendor's own CLI, driven headless",
         installed,
-        // The CLI holds its own credentials; we cannot see them, so installed
-        // is as much as we can honestly say.
-        connected: installed,
+        connected: signed_in,
         login: vec![binary.into(), "login".into()],
         install_hint: match id {
             BackendKind::Codex => "npm i -g @openai/codex",
             BackendKind::Gemini => "npm i -g @google/gemini-cli",
             _ => "npm i -g <package>",
         },
-        detail: match (installed, model) {
-            (true, Some(model)) => model,
-            (true, None) => command,
-            (false, _) => "command not found".into(),
+        detail: match (installed, signed_in, model) {
+            (true, true, Some(model)) => format!("signed in · {model}"),
+            (true, true, None) => "signed in".into(),
+            (true, false, _) => "needs sign-in".into(),
+            (false, _, _) => "command not found".into(),
         },
     }
 }

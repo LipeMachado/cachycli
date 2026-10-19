@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+- `/model` offers only the models of providers you are **signed in to**:
+  Claude Code without a login and endpoints without a key are no longer in
+  the list, so picking one cannot produce a failed turn.
+- `/provider` says the same: "needs sign-in" when the CLI is installed but has
+  no credentials, "signed in" when it does. Codex and Gemini are checked
+  through their own credential files and environment keys.
+
 ## 0.3.0
 
 - `/model` shows the models of **every provider you are signed in to**, grouped

@@ -2709,12 +2709,14 @@ fn fill_menu_choices(
     // logins have instead of only the current provider's.
     app.agent_model_options = crate::providers::detect(config)
         .iter()
-        .filter(|info| info.installed)
+        .filter(|info| info.connected)
         .flat_map(|info| {
             let id = info.id;
             let entries: Vec<(String, String)> = match id {
                 BackendKind::Native => models::catalog(config)
                     .into_iter()
+                    // Only the endpoints that have a key: the rest cannot run.
+                    .filter(|model| models::api_key_for(model).is_some())
                     .map(|model| {
                         (
                             format!("{}::{}", id.provider_name(), model.name),
