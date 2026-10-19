@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- Two more CLI agents: **Codex** (`codex exec --json`) and **Gemini**
+  (`gemini -p --output-format stream-json`), driven headless like Claude Code
+  already was, each keeping its own session id so `--resume` continues the
+  conversation there.
+- **Grok** through its endpoint: `grok-4` and `grok-4-mini` are in the model
+  list, `XAI_API_KEY` is the only thing to set.
+- `/provider` lists all of them with what it knows: installed, signed in, or
+  not there yet.
+
 ## 0.1.1
 
 - The model list is read from the opencode server first (the CLI is only a
