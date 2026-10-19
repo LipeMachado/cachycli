@@ -26,7 +26,8 @@ jobs:
             target: aarch64-unknown-linux-gnu
             asset: linux-aarch64
             archive: tar.gz
-          - os: macos-13
+          # GitHub retired the macos-13 runners; the Intel image is this one.
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             asset: macos-x86_64
             archive: tar.gz
