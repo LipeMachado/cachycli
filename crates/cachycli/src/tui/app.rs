@@ -597,6 +597,9 @@ pub struct App {
     pub benching: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// True when the active provider is opencode (models come from there).
     pub provider_is_opencode: bool,
+    /// The last model-list failure we told the user about, so a repeated one
+    /// stays quiet.
+    pub opencode_models_error: Arc<std::sync::Mutex<Option<String>>>,
     /// Set when opencode reported an expired credential in this session, so the
     /// model menu can warn instead of letting the same mistake happen twice.
     pub opencode_key_expired: bool,
@@ -699,6 +702,7 @@ impl App {
             bench_results: std::sync::Arc::new(std::sync::Mutex::new(load_bench_results())),
             benching: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             provider_is_opencode: false,
+            opencode_models_error: Arc::new(std::sync::Mutex::new(None)),
             opencode_key_expired: false,
             queue: Vec::new(),
             persona_name: config

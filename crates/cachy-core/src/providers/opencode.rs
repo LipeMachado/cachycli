@@ -291,7 +291,7 @@ impl OpencodeBackend {
             .send()
             .await?;
         if !resp.status().is_success() {
-            anyhow::bail!("the opencode server answered HTTP {}", resp.status());
+            anyhow::bail!("HTTP {}", resp.status().as_u16());
         }
         let value: Value = resp.json().await?;
         let connected: Vec<String> = value

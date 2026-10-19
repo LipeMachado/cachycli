@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1
+
+- The model list is read from the opencode server first (the CLI is only a
+  fallback), so `/model` offers the models your login actually has.
+- A model list that cannot be read says so once, calmly, instead of repeating
+  itself on every refresh.
+- A turn that fails now explains itself in plain output, not only in JSON.
+- `cachycli uninstall` removes the binary, its symlink and the PATH lines the
+  installer added (`--purge` also removes `~/.cachy`, after asking).
+
 ## 0.1.0 — first release
 
 First release: a terminal coding agent written in Rust with a ratatui /

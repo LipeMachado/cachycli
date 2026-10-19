@@ -2552,6 +2552,29 @@ fn model_picker_state(config: &Config, app: &App) -> PickerState {
     }
 }
 
+/// Tell the user once why the model list is empty; repeating it on every
+/// refresh is noise.
+fn report_once(
+    reported: &Arc<std::sync::Mutex<Option<String>>>,
+    notice: &mpsc::UnboundedSender<AgentEvent>,
+    reason: &str,
+) {
+    let message = format!("could not list opencode models ({reason}) — type one as provider/model");
+    let first_time = match reported.lock() {
+        Ok(mut last) => {
+            let is_new = last.as_deref() != Some(message.as_str());
+            if is_new {
+                *last = Some(message.clone());
+            }
+            is_new
+        }
+        Err(_) => true,
+    };
+    if first_time {
+        let _ = notice.send(AgentEvent::Info(message));
+    }
+}
+
 /// Fill the `/` menu choices and, for opencode, read its model list in the
 /// background (the command takes about a second).
 fn fill_menu_choices(
@@ -2584,6 +2607,7 @@ fn fill_menu_choices(
         }
     }
     let list = app.opencode_model_options.clone();
+    let reported = app.opencode_models_error.clone();
     let command = config.agent.opencode.command.clone();
     tokio::spawn(async move {
         // The server knows the models of the providers you are signed in to,
@@ -2597,6 +2621,9 @@ fn fill_menu_choices(
                 Ok(models) if !models.is_empty() => {
                     if let Ok(mut guard) = list.lock() {
                         *guard = models.into_iter().map(|id| (id, String::new())).collect();
+                    }
+                    if let Ok(mut last) = reported.lock() {
+                        *last = None; // a working list clears the memory
                     }
                     return;
                 }
@@ -2614,9 +2641,7 @@ fn fill_menu_choices(
                 if reason.is_empty() {
                     reason = format!("{e}");
                 }
-                let _ = notice.send(AgentEvent::Info(format!(
-                    "could not list opencode models ({reason}) — type one as provider/model"
-                )));
+                report_once(&reported, &notice, &reason);
                 return;
             }
         };
@@ -2631,9 +2656,7 @@ fn fill_menu_choices(
             if reason.is_empty() {
                 reason = format!("`{command} models` printed nothing");
             }
-            let _ = notice.send(AgentEvent::Info(format!(
-                "could not list opencode models ({reason}) — type one as provider/model"
-            )));
+            report_once(&reported, &notice, &reason);
             return;
         }
         if let Ok(mut guard) = list.lock() {
