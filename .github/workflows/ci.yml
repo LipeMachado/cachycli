@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  rust:
+    name: build and test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --check
+      - name: Build
+        run: cargo build --locked --workspace
+      - name: Test
+        run: cargo test --locked --workspace
+        env:
+          # Tests that need the harness mock provider skip themselves when it
+          # is not running; the rest are self-contained.
+          RUST_BACKTRACE: 1
+
+  site:
+    name: site build
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: cachycli-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cachycli-web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build

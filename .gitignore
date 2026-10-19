@@ -1,0 +1,22 @@
+# Rust
+/target
+**/*.rs.bk
+*.tmp
+
+# Node / Next.js (the site also carries its own .gitignore)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Local state and secrets
+.cachy/
+.env.local
+.env*.local
+*.log
+/tmp
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

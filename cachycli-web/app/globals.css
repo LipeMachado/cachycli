@@ -1,0 +1,602 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/*  CachyCLI — industrial minimalism × dark editorial brutalism        */
+/*  Soft charcoal ground (never absolute black), bone paper, amber ink */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --bg: #17181c;
+  --bg-deep: #121317;
+  --panel: #1c1d22;
+  --panel-2: #212227;
+  --paper: #e7e4dd;
+  --paper-2: #ddd9d1;
+  --ink: #f2f1ee;
+  --ink-60: rgba(242, 241, 238, 0.6);
+  --ink-38: rgba(242, 241, 238, 0.56);
+  --line: rgba(242, 241, 238, 0.14);
+  --line-strong: rgba(242, 241, 238, 0.28);
+  --accent: #e0af68;
+  --accent-ink: #191307;
+  --blue: #74aaff;
+
+  --pad: clamp(16px, 4vw, 64px);
+  --section-y: clamp(52px, 5.5vw, 96px);
+  --maxw: 1560px;
+
+  --nav-h: 64px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-panel: var(--panel);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-archivo);
+  --font-serif: var(--font-serif);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+html.lenis-stopped {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Interactive defaults: cursors and native controls                  */
+/* ------------------------------------------------------------------ */
+
+a,
+button,
+summary,
+label[for],
+select,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+[data-clickable] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+p,
+li,
+dd,
+dt,
+h1,
+h2,
+h3,
+h4 {
+  overflow-wrap: break-word;
+}
+
+main .grid > *,
+main [class*="grid-cols"] > * {
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom scrollbars                                                  */
+/* ------------------------------------------------------------------ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 241, 238, 0.22) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(242, 241, 238, 0.18);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(242, 241, 238, 0.34);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Native element styling (details, select, inputs, dialogs)           */
+/* ------------------------------------------------------------------ */
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details[open] .details-chevron {
+  transform: rotate(90deg);
+}
+
+details > summary .details-chevron {
+  transition: transform 0.4s var(--ease);
+}
+
+select {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 40px 12px 14px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-60) 50%),
+    linear-gradient(135deg, var(--ink-60) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% + 1px),
+    calc(100% - 13px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+select:hover {
+  border-color: var(--ink-60);
+}
+
+::placeholder {
+  color: var(--ink-38);
+}
+
+@layer components {
+/* ------------------------------------------------------------------ */
+/*  Type                                                               */
+/* ------------------------------------------------------------------ */
+
+.display {
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-weight: 620;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+
+.h1 {
+  font-size: clamp(2.35rem, 7vw, 5.4rem);
+}
+
+.h2 {
+  font-size: clamp(1.85rem, 4.4vw, 3.3rem);
+}
+
+.h3 {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+.statement {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(1.35rem, 2.6vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  line-height: 1.55;
+  color: var(--ink-60);
+  max-width: 62ch;
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.mono-sm {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rules, frames                                                      */
+/* ------------------------------------------------------------------ */
+
+.hairline {
+  border-color: var(--line);
+}
+
+.rule-t {
+  border-top: 1px solid var(--line);
+}
+
+.rule-b {
+  border-bottom: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Buttons                                                            */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.35s var(--ease),
+    color 0.35s var(--ease),
+    border-color 0.35s var(--ease),
+    transform 0.35s var(--ease);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-sm {
+  height: 40px;
+}
+
+.btn-md {
+  height: 48px;
+}
+
+.btn-lg {
+  height: 56px;
+  padding: 0 26px;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: #14151a;
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+}
+
+.btn-ghost {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.btn-ghost:hover {
+  border-color: var(--ink);
+  background: rgba(242, 241, 238, 0.05);
+}
+
+.btn-amber {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn-amber:hover {
+  background: var(--ink);
+  color: #14151a;
+}
+
+.btn-link {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-60);
+  letter-spacing: 0.06em;
+}
+
+.btn-link:hover {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Panels                                                             */
+/* ------------------------------------------------------------------ */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.panel-pad {
+  padding: clamp(18px, 1.8vw, 28px);
+}
+
+.panel-hover {
+  transition:
+    background-color 0.45s var(--ease),
+    border-color 0.45s var(--ease),
+    transform 0.45s var(--ease);
+}
+
+.panel-hover:hover {
+  background: var(--panel-2);
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+
+.paper-section {
+  background: var(--paper);
+  color: #191a1f;
+}
+
+.paper-section .lede,
+.paper-section .muted {
+  color: rgba(25, 26, 31, 0.72);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Terminal frame                                                     */
+/* ------------------------------------------------------------------ */
+
+.shell {
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+
+.shell-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.shell-dots i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--line-strong);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Marquee                                                            */
+/* ------------------------------------------------------------------ */
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 46s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Code                                                               */
+/* ------------------------------------------------------------------ */
+
+pre.codeblock {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px 18px;
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  tab-size: 2;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 3px 7px;
+  border: 1px solid var(--line-strong);
+  background: rgba(242, 241, 238, 0.05);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tables                                                             */
+/* ------------------------------------------------------------------ */
+
+table.brutal {
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.brutal th,
+table.brutal td {
+  text-align: left;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+table.brutal th {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-38);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.paper-section table.brutal th,
+.paper-section table.brutal td {
+  border-color: rgba(25, 26, 31, 0.16);
+}
+
+.paper-section table.brutal th {
+  color: rgba(25, 26, 31, 0.64);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dropdown / popover                                                 */
+/* ------------------------------------------------------------------ */
+
+.popover {
+  position: absolute;
+  z-index: 50;
+  min-width: 240px;
+  border: 1px solid var(--line-strong);
+  background: rgba(23, 24, 28, 0.96);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.popover-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  transition: background-color 0.25s var(--ease);
+}
+
+.popover-item:hover {
+  background: rgba(242, 241, 238, 0.06);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reveal (blur in / out)                                             */
+/* ------------------------------------------------------------------ */
+
+/* Pinned (scrollytelling) sections. */
+.pin-wrap {
+  position: relative;
+}
+
+.pin-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  /* the fixed navbar sits above the stage */
+  padding-top: calc(var(--nav-h) + clamp(8px, 2.4vh, 32px));
+  padding-bottom: clamp(10px, 2.4vh, 32px);
+}
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}

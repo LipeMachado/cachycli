@@ -1,0 +1,87 @@
+# cachycli configuration — https://github.com/LipeMachado/cachycli
+#
+# Everything here is optional. Run `cachycli --backend opencode` to use your
+# opencode installation without any model configuration at all.
+
+[cli]
+auto_update = false
+
+# ---------------------------------------------------------------------------
+# Agent backend
+# ---------------------------------------------------------------------------
+# native   — built-in agent loop with the models below (default)
+# opencode — drive your opencode installation (models, tools, auth)
+# acp      — connect to any ACP agent (e.g. `opencode acp`)
+[agent]
+# native   — built-in agent loop with the models below
+# opencode — drive your opencode installation (models, tools, auth) [default
+#            when opencode is installed; run with --backend native to switch]
+# acp      — connect to any ACP agent (e.g. `opencode acp`)
+backend = "opencode"
+
+[agent.opencode]
+command = "opencode"
+transport = "auto"      # auto | cli | server
+# url = "http://127.0.0.1:4096"
+# model = "provider/model"
+
+[agent.acp]
+command = "opencode"
+args = ["acp"]
+
+# ---------------------------------------------------------------------------
+# Models (native backend)
+# ---------------------------------------------------------------------------
+# Define your own OpenAI-compatible or Anthropic endpoint:
+#
+# [models]
+# default = "my-model"
+#
+# [model.my-model]
+# model = "llama-3.1-70b"
+# base_url = "http://localhost:8080/v1"
+# name = "Local Llama"
+# env_key = "LOCAL_API_KEY"
+# context_window = 128000
+#
+# Built-in presets that need only an API key: gpt-5, gpt-4o,
+# claude-sonnet-4-5, ollama, lmstudio, vllm, opencode-zen.
+
+# ---------------------------------------------------------------------------
+# Interface
+# ---------------------------------------------------------------------------
+[ui]
+theme = "cachy-night"   # cachy-night | cachy-day | tokyonight | rosepine-moon | oscura-midnight
+show_thinking = true
+max_thoughts_width = 120
+
+[features]
+web_fetch = true
+web_search = false
+
+[tools]
+respect_gitignore = true
+
+[toolset.bash]
+timeout_secs = 120
+output_byte_limit = 65536
+
+# ---------------------------------------------------------------------------
+# MCP servers
+# ---------------------------------------------------------------------------
+# [mcp_servers.filesystem]
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+#
+# [mcp_servers.remote]
+# url = "https://mcp.example.com/mcp"
+# headers = { authorization = "Bearer ${MCP_TOKEN}" }
+#
+# Register cachycli in opencode as an MCP server with:
+#   opencode mcp add cachy --command "cachycli mcp serve"
+
+# ---------------------------------------------------------------------------
+# Memory (cross-session notes)
+# ---------------------------------------------------------------------------
+[memory]
+enabled = false

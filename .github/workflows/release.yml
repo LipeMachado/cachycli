@@ -1,0 +1,75 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `asset` must match install.sh/install.ps1: cachycli-<version>-<os>-<arch>
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset: linux-x86_64
+            archive: tar.gz
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset: linux-aarch64
+            archive: tar.gz
+          - os: macos-13
+            target: x86_64-apple-darwin
+            asset: macos-x86_64
+            archive: tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            asset: macos-aarch64
+            archive: tar.gz
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            asset: windows-x86_64
+            archive: zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} -p cachycli
+      - name: Package (unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          [ -n "$version" ] || version="0.0.0"
+          name="cachycli-${version}-${{ matrix.asset }}"
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/cachycli" dist/cachycli
+          tar -czf "dist/${name}.tar.gz" -C dist cachycli
+          echo "ASSET=dist/${name}.tar.gz" >> "$GITHUB_ENV"
+      - name: Package (windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $name = "cachycli-$version-${{ matrix.asset }}"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/cachycli.exe" "dist/cachycli.exe"
+          Compress-Archive -Path "dist/cachycli.exe" -DestinationPath "dist/$name.zip"
+          "ASSET=dist/$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+          generate_release_notes: true
