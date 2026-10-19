@@ -2567,11 +2567,12 @@ fn sessions_picker_state(cwd: &std::path::Path) -> PickerState {
 fn model_picker_state(config: &Config, app: &App) -> PickerState {
     // Every provider you can use, grouped by provider, so a model from another
     // one is two keystrokes away instead of a /provider trip.
-    if !app.agent_model_options.is_empty() {
+    let merged = app.model_options();
+    if !merged.is_empty() {
         let mut items = Vec::new();
         let mut values = Vec::new();
         let current = format!("{}::{}", app.backend_label, app.model_label);
-        for (value, hint) in &app.agent_model_options {
+        for (value, hint) in &merged {
             let mut note = hint.trim_start_matches("· ").to_string();
             if *value == current {
                 note = if note.is_empty() {
@@ -2705,48 +2706,22 @@ fn fill_menu_choices(
             )
         })
         .collect();
-    // Every provider you can actually use, so /model shows the models your
-    // logins have instead of only the current provider's.
-    app.agent_model_options = crate::providers::detect(config)
-        .iter()
+    // Who you are signed in to, and the built-in models that have a key: the
+    // /model list is built from these when it is opened, so the opencode list
+    // that arrives in the background is included.
+    app.connected_providers = crate::providers::detect(config)
+        .into_iter()
         .filter(|info| info.connected)
-        .flat_map(|info| {
-            let id = info.id;
-            let entries: Vec<(String, String)> = match id {
-                BackendKind::Native => models::catalog(config)
-                    .into_iter()
-                    // Only the endpoints that have a key: the rest cannot run.
-                    .filter(|model| models::api_key_for(model).is_some())
-                    .map(|model| {
-                        (
-                            format!("{}::{}", id.provider_name(), model.name),
-                            format!("{} · {}", info.label, model.display()),
-                        )
-                    })
-                    .collect(),
-                BackendKind::Acp => Vec::new(),
-                BackendKind::Opencode => app
-                    .opencode_model_options
-                    .lock()
-                    .map(|list| {
-                        list.iter()
-                            .map(|(value, hint)| {
-                                (format!("{}::{}", id.provider_name(), value), hint.clone())
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                _ => crate::providers::models_for(id)
-                    .into_iter()
-                    .map(|model| {
-                        (
-                            format!("{}::{model}", id.provider_name()),
-                            format!("{} · {model}", info.label),
-                        )
-                    })
-                    .collect(),
-            };
-            entries
+        .map(|info| info.id)
+        .collect();
+    app.native_ready_options = models::catalog(config)
+        .into_iter()
+        .filter(|model| models::api_key_for(model).is_some())
+        .map(|model| {
+            (
+                format!("{}::{}", BackendKind::Native.provider_name(), model.name),
+                format!("Your models · {}", model.display()),
+            )
         })
         .collect();
     app.native_model_options = models::catalog(config)
@@ -2754,7 +2729,9 @@ fn fill_menu_choices(
         .map(|model| (model.name.clone(), model.display().to_string()))
         .collect();
     app.provider_is_opencode = matches!(kind, BackendKind::Opencode);
-    if !app.provider_is_opencode {
+    // Read the list whenever opencode is installed, not only when it is the
+    // provider in use: /model offers every connected provider's models.
+    if !crate::providers::opencode().installed {
         return;
     }
     if let Ok(list) = app.opencode_model_options.lock() {
@@ -2773,7 +2750,16 @@ fn fill_menu_choices(
         // line when both come up empty: one message, with the reason.
         let mut reason = String::new();
         if let Some(backend) = opencode {
-            match backend.list_models().await {
+            // Bounded: a server that hangs (or is still starting) must not hold
+            // the fallback back.
+            let asked =
+                tokio::time::timeout(std::time::Duration::from_secs(8), backend.list_models())
+                    .await;
+            let answer = match asked {
+                Ok(answer) => answer,
+                Err(_) => Err(anyhow::anyhow!("the server did not answer in time")),
+            };
+            match answer {
                 Ok(models) if !models.is_empty() => {
                     if let Ok(mut guard) = list.lock() {
                         *guard = models.into_iter().map(|id| (id, String::new())).collect();
@@ -2787,8 +2773,18 @@ fn fill_menu_choices(
                 Err(e) => reason = format!("{e}"),
             }
         }
+        if std::env::var("CACHY_OC_DEBUG").is_ok() {
+            eprintln!(
+                "[oc] servidor falhou ({reason}) — tentando o comando em {:?}",
+                std::env::temp_dir()
+            );
+        }
+        // Run it from a neutral directory: opencode migrates per project on
+        // startup, so a project whose migration fails cannot even list models,
+        // while the same command elsewhere answers fine. The list is global.
         let output = tokio::process::Command::new(&command)
             .arg("models")
+            .current_dir(std::env::temp_dir())
             .output()
             .await;
         let output = match output {
@@ -2802,6 +2798,18 @@ fn fill_menu_choices(
             }
         };
         let text = String::from_utf8_lossy(&output.stdout);
+        if std::env::var("CACHY_OC_DEBUG").is_ok() {
+            eprintln!(
+                "[oc] `{command} models` → status={:?} stdout={} stderr={:?}",
+                output.status.code(),
+                output.stdout.len(),
+                String::from_utf8_lossy(&output.stderr)
+                    .trim()
+                    .chars()
+                    .take(60)
+                    .collect::<String>()
+            );
+        }
         let items: Vec<(String, String)> = text
             .lines()
             .map(|line| line.trim())

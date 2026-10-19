@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2
+
+- opencode's models are in `/model` even when another provider is in use, and
+  they arrive as soon as the background read finishes instead of only at
+  startup.
+- That read runs from a temporary directory: opencode migrates per project on
+  startup, so a project whose migration fails cannot list models, while the
+  same command elsewhere answers fine.
+
 ## 0.3.1
 
 - `/model` offers only the models of providers you are **signed in to**:

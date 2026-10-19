@@ -8,7 +8,7 @@ use ratatui::layout::Rect;
 use ratatui::text::Line;
 
 use cachy_core::agent::AgentEvent;
-use cachy_core::config::Config;
+use cachy_core::config::{BackendKind, Config};
 use cachy_core::permissions::ApprovalChoice;
 use cachy_core::session::PlanEntry;
 use cachy_core::tools::TodoItem;
@@ -597,8 +597,10 @@ pub struct App {
     pub benching: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// True when the active provider is opencode (models come from there).
     pub provider_is_opencode: bool,
-    /// Models of every provider you can use, as `provider::model`.
-    pub agent_model_options: Vec<(String, String)>,
+    /// Providers you are signed in to, in the order the picker shows them.
+    pub connected_providers: Vec<BackendKind>,
+    /// The built-in catalog entries that have a key, as `(value, hint)`.
+    pub native_ready_options: Vec<(String, String)>,
     /// A model chosen from another provider, applied once the switch is done.
     pub pending_model: Option<String>,
     /// The last model-list failure we told the user about, so a repeated one
@@ -706,7 +708,8 @@ impl App {
             bench_results: std::sync::Arc::new(std::sync::Mutex::new(load_bench_results())),
             benching: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             provider_is_opencode: false,
-            agent_model_options: Vec::new(),
+            connected_providers: Vec::new(),
+            native_ready_options: Vec::new(),
             pending_model: None,
             opencode_models_error: Arc::new(std::sync::Mutex::new(None)),
             opencode_key_expired: false,
@@ -2945,6 +2948,37 @@ or switch to a free model with /model (the `opencode/*-free` ones and \
         Some(rest.trim().to_string())
     }
 
+    /// The models of every provider you are signed in to, as
+    /// `provider::model` — computed when asked, because the opencode list
+    /// arrives in the background after startup.
+    pub fn model_options(&self) -> Vec<(String, String)> {
+        let mut out: Vec<(String, String)> = Vec::new();
+        for kind in &self.connected_providers {
+            match kind {
+                BackendKind::Opencode => {
+                    if let Ok(list) = self.opencode_model_options.lock() {
+                        for (value, hint) in list.iter() {
+                            out.push((format!("{}::{value}", kind.provider_name()), hint.clone()));
+                        }
+                    }
+                }
+                BackendKind::Native => {
+                    out.extend(self.native_ready_options.iter().cloned());
+                }
+                BackendKind::Acp => {}
+                other => {
+                    for model in crate::providers::models_for(*other) {
+                        out.push((
+                            format!("{}::{model}", other.provider_name()),
+                            format!("{} · {model}", other.provider_name()),
+                        ));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     pub fn slash_matches(&self) -> Vec<&'static slash::SlashCommand> {
         match self.editor.active_slash() {
             Some(prefix) => slash::filter(&prefix),
@@ -3018,8 +3052,9 @@ or switch to a free model with /model (the `opencode/*-free` ones and \
                 } else if cmd.name == "/model" {
                     // The models of every provider you can use, as
                     // `provider::model` — choosing one switches provider too.
-                    if !self.agent_model_options.is_empty() {
-                        options.extend(self.agent_model_options.iter().cloned());
+                    let merged = self.model_options();
+                    if !merged.is_empty() {
+                        options.extend(merged);
                     } else if self.provider_is_opencode {
                         // Nothing to offer yet: the list is still being read, or
                         // could not be read at all. Never another provider's.
